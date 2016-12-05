@@ -2,11 +2,14 @@
 # coding=utf-8
 
 import logging.handlers
+import math
 import pprint
 import re
 import time
 from collections import OrderedDict
 from copy import deepcopy
+
+from prettytable import PrettyTable
 
 KEY_READ_ERROR = 'Not exist'
 LOG_FILE = 'qihuo.log'
@@ -17,12 +20,24 @@ FENZHONG_5 = 5 * FENZHONG_1
 FENZHONG_15 = 15 * FENZHONG_1
 FENZHONG_30 = 30 * FENZHONG_1
 
-KEY_DICT = {'CANGL': u'仓量', 'CJE': u'成交额', 'CJL': u'成交量', 'FANGX': u'方向', 'JIAG': u'价格',
-            'KAIC': u'开仓', 'KDKD': u'开多开多', 'KDKK': u'开多开空', 'KDPD': u'开多平多',
-            'KKKD': u'开空开多', 'KKKK': u'开空开空', 'KKPK': u'开空平空', 'PDKD': u'平多开多',
-            'PDPD': u'平多平多', 'PDPK': u'平多平空', 'PINGC': u'平仓', 'PKKK': u'平空开空',
-            'PKPD': u'平空平多', 'PKPK': u'平空平空', 'SHIJ': u'时间', 'SHSD': u'上换手多',
-            'SHSK': u'上换手空', 'WEIZ': u'交易位置', 'XHSD': u'下换手多', 'XHSK': u'下换手空'}
+KEY_DICT = {
+    'CANGL': u'仓量', 'CJE': u'成交额', 'CJL': u'成交量', 'FANGX': u'方向', 'JIAG': u'价格', 'KAIC': u'开仓',
+    'KDKD': u'开多开多', 'KDKK': u'开多开空', 'KDPD': u'开多平多', 'KKKD': u'开空开多', 'KKKK': u'开空开空',
+    'KKPK': u'开空平空', 'PDKD': u'平多开多', 'PDPD': u'平多平多', 'PDPK': u'平多平空', 'PINGC': u'平仓',
+    'PKKK': u'平空开空', 'PKPD': u'平空平多', 'PKPK': u'平空平空', 'SHIJ': u'时间', 'SHSP': u'上换手平',
+    'SHSK': u'上换手开', 'WEIZ': u'交易位置', 'XHSP': u'下换手平', 'XHSK': u'下换手开', 'ZUIG': u'最高价',
+    'ZUID': u'最低价', 'KPAN': u'开盘价', 'SPAN': u'收盘价'
+}
+EMPTY_TEMP_SUM_DICT = {
+    'KDKD': 0, 'KDKK': 0, 'KDPD': 0, 'PKPK': 0, 'PKKK': 0, 'PKPD': 0, 'PDPD': 0, 'PDKD': 0, 'PDPK': 0,
+    'KKKK': 0, 'KKKD': 0, 'KKPK': 0, 'SHSP': 0, 'SHSK': 0, 'XHSP': 0, 'XHSK': 0, 'KPAN': 0, 'SPAN': 0,
+    'ZUIG': list(), 'ZUID': list()
+}
+ALL_SUM_DICT = {
+    'KDKD': 0, 'KDKK': 0, 'KDPD': 0, 'PKPK': 0, 'PKKK': 0, 'PKPD': 0, 'PDPD': 0, 'PDKD': 0, 'PDPK': 0,
+    'KKKK': 0, 'KKKD': 0, 'KKPK': 0, 'SHSP': 0, 'SHSK': 0, 'XHSP': 0, 'XHSK': 0, 'KPAN': 0, 'SPAN': 0,
+    'ZUIG': list(), 'ZUID': list()
+}
 
 handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1024 * 1024)
 fmt = '%(asctime)s - %(filename)s:%(lineno)s - %(message)s'
@@ -33,11 +48,20 @@ logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
 
+def reset_dict(dict_data):
+    for (k, v) in dict_data.iteritems():
+        if k == 'ZUIG' or k == 'ZUID':
+            dict_data[k] = list()
+        else:
+            dict_data[k] = 0
+
+
 class DataHandler(object):
     def __init__(self):
         self.logger = logger
         self.data_dict = OrderedDict()
-        self.first_record_time_stamp = 0
+        self.first_record_timestamp = 0
+        self.last_record_timestamp = 0
 
     # 根据价格计算方向
     def generate_dynamic_data(self):
@@ -45,8 +69,9 @@ class DataHandler(object):
         reversed_keys = deepcopy(self.data_dict.keys())
         reversed_keys.reverse()
         earliest_record_index_number = len(reversed_keys) - 1  # 最早的那条记录的索引值
-        # 设置最早的时间戳
-        self.first_record_time_stamp = self.data_dict[earliest_record_index_number]['SHIJ']
+        # 设置最早和最晚的时间戳
+        self.first_record_timestamp = self.data_dict[earliest_record_index_number]['SHIJ']
+        self.last_record_timestamp = self.data_dict[0]['SHIJ']
         # 确定第一个交易位置值
         for each in reversed_keys:
             if each < earliest_record_index_number:
@@ -88,7 +113,7 @@ class DataHandler(object):
                         self.data_dict[each]['KDPD'] = self.data_dict[each]['PINGC']
                     else:
                         # 开仓等于平仓
-                        self.data_dict[each]['SHSD'] = self.data_dict[each]['KAIC']
+                        self.data_dict[each]['SHSP'] = self.data_dict[each]['KAIC']
                         self.data_dict[each]['SHSK'] = self.data_dict[each]['PINGC']
                 elif WEIZ == -1:
                     if self.data_dict[each]['KAIC'] < self.data_dict[each]['PINGC']:
@@ -103,7 +128,7 @@ class DataHandler(object):
                         self.data_dict[each]['KKPK'] = self.data_dict[each]['PINGC']
                     else:
                         # 开仓等于平仓
-                        self.data_dict[each]['XHSD'] = self.data_dict[each]['PINGC']
+                        self.data_dict[each]['XHSP'] = self.data_dict[each]['PINGC']
                         self.data_dict[each]['XHSK'] = self.data_dict[each]['KAIC']
                 else:
                     self.logger.error(u'有问题， 交易位置非1 或 -1')
@@ -145,10 +170,10 @@ class DataHandler(object):
                         'KKKK': 0,  # 开空开空
                         'KKKD': 0,  # 开空开多
                         'KKPK': 0,  # 开空平空
-                        'SHSD': 0,  # 上换手多
-                        'SHSK': 0,  # 上换手空
-                        'XHSD': 0,  # 下换手多
-                        'XHSK': 0,  # 下换手空
+                        'SHSP': 0,  # 上换手平
+                        'SHSK': 0,  # 上换手开
+                        'XHSP': 0,  # 下换手平
+                        'XHSK': 0,  # 下换手开
                     }
                     # redis_client.write_data(str(index), json.dumps(data_dict, ensure_ascii=False))
                 else:
@@ -178,84 +203,122 @@ class DataHandler(object):
         print(u'打印到文本文件成功')
 
     def read_all_sum(self):
-        all_sum_dict = {
-            'ALL_KDKD': 0,
-            'ALL_KDKK': 0,
-            'ALL_KDPD': 0,
-            'ALL_PKPK': 0,
-            'ALL_PKKK': 0,
-            'ALL_PKPD': 0,
-            'ALL_PDPD': 0,
-            'ALL_PDKD': 0,
-            'ALL_PDPK': 0,
-            'ALL_KKKK': 0,
-            'ALL_KKKD': 0,
-            'ALL_KKPK': 0,
-            'ALL_SHSD': 0,
-            'ALL_SHSK': 0,
-            'ALL_XHSD': 0,
-            'ALL_XHSK': 0
-        }
         for each in self.data_dict.values():
-            all_sum_dict['ALL_KDKD'] += each['KDKD']
-            all_sum_dict['ALL_KDKK'] += each['KDKK']
-            all_sum_dict['ALL_KDPD'] += each['KDPD']
-            all_sum_dict['ALL_PKPK'] += each['PKPK']
-            all_sum_dict['ALL_PKKK'] += each['PKKK']
-            all_sum_dict['ALL_PKPD'] += each['PKPD']
-            all_sum_dict['ALL_PDPD'] += each['PDPD']
-            all_sum_dict['ALL_PDKD'] += each['PDKD']
-            all_sum_dict['ALL_PDPK'] += each['PDPK']
-            all_sum_dict['ALL_KKKK'] += each['KKKK']
-            all_sum_dict['ALL_KKKD'] += each['KKKD']
-            all_sum_dict['ALL_KKPK'] += each['KKPK']
-            all_sum_dict['ALL_SHSD'] += each['SHSD']
-            all_sum_dict['ALL_SHSK'] += each['SHSK']
-            all_sum_dict['ALL_XHSD'] += each['XHSD']
-            all_sum_dict['ALL_XHSK'] += each['XHSK']
+            ALL_SUM_DICT['KDKD'] += each['KDKD']
+            ALL_SUM_DICT['KDKK'] += each['KDKK']
+            ALL_SUM_DICT['KDPD'] += each['KDPD']
+            ALL_SUM_DICT['PKPK'] += each['PKPK']
+            ALL_SUM_DICT['PKKK'] += each['PKKK']
+            ALL_SUM_DICT['PKPD'] += each['PKPD']
+            ALL_SUM_DICT['PDPD'] += each['PDPD']
+            ALL_SUM_DICT['PDKD'] += each['PDKD']
+            ALL_SUM_DICT['PDPK'] += each['PDPK']
+            ALL_SUM_DICT['KKKK'] += each['KKKK']
+            ALL_SUM_DICT['KKKD'] += each['KKKD']
+            ALL_SUM_DICT['KKPK'] += each['KKPK']
+            ALL_SUM_DICT['SHSP'] += each['SHSP']
+            ALL_SUM_DICT['SHSK'] += each['SHSK']
+            ALL_SUM_DICT['XHSP'] += each['XHSP']
+            ALL_SUM_DICT['XHSK'] += each['XHSK']
+            ALL_SUM_DICT['ZUIG'].append(each['JIAG'])
+            ALL_SUM_DICT['ZUID'].append(each['JIAG'])
 
-        print('All SUM data are:\n %s' % pprint.pformat(all_sum_dict))
-        self.logger.info('All SUM data are:\n %s', pprint.pformat(all_sum_dict))
+        ALL_SUM_DICT['ZUIG'] = max(ALL_SUM_DICT['ZUIG'])
+        ALL_SUM_DICT['ZUID'] = min(ALL_SUM_DICT['ZUID'])
+        ALL_SUM_DICT['KPAN'] = self.data_dict[len(self.data_dict.keys()) - 1]['JIAG']
+        ALL_SUM_DICT['SPAN'] = self.data_dict[0]['JIAG']
+
+        print(u'所有汇总数据为:\n %s' % pprint.pformat(ALL_SUM_DICT))
+        self.logger.info(u'所有汇总数据为:\n %s', pprint.pformat(ALL_SUM_DICT))
 
     def read_interval_sum(self, interval):
-        interval_sum_dict = {
-            'INTERVAL_KDKD': 0,
-            'INTERVAL_KDKK': 0,
-            'INTERVAL_KDPD': 0,
-            'INTERVAL_PKPK': 0,
-            'INTERVAL_PKKK': 0,
-            'INTERVAL_PKPD': 0,
-            'INTERVAL_PDPD': 0,
-            'INTERVAL_PDKD': 0,
-            'INTERVAL_PDPK': 0,
-            'INTERVAL_KKKK': 0,
-            'INTERVAL_KKKD': 0,
-            'INTERVAL_KKPK': 0,
-            'INTERVAL_SHSD': 0,
-            'INTERVAL_SHSK': 0,
-            'INTERVAL_XHSD': 0,
-            'INTERVAL_XHSK': 0
-        }
-        for each in self.data_dict.values():
-            if each['SHIJ'] - self.first_record_time_stamp < FENZHONG_1 * int(interval):
-                interval_sum_dict['INTERVAL_KDKD'] += each['KDKD']
-                interval_sum_dict['INTERVAL_KDKK'] += each['KDKK']
-                interval_sum_dict['INTERVAL_KDPD'] += each['KDPD']
-                interval_sum_dict['INTERVAL_PKPK'] += each['PKPK']
-                interval_sum_dict['INTERVAL_PKKK'] += each['PKKK']
-                interval_sum_dict['INTERVAL_PKPD'] += each['PKPD']
-                interval_sum_dict['INTERVAL_PDPD'] += each['PDPD']
-                interval_sum_dict['INTERVAL_PDKD'] += each['PDKD']
-                interval_sum_dict['INTERVAL_PDPK'] += each['PDPK']
-                interval_sum_dict['INTERVAL_KKKK'] += each['KKKK']
-                interval_sum_dict['INTERVAL_KKKD'] += each['KKKD']
-                interval_sum_dict['INTERVAL_KKPK'] += each['KKPK']
-                interval_sum_dict['INTERVAL_SHSD'] += each['SHSD']
-                interval_sum_dict['INTERVAL_SHSK'] += each['SHSK']
-                interval_sum_dict['INTERVAL_XHSD'] += each['XHSD']
-                interval_sum_dict['INTERVAL_XHSK'] += each['XHSK']
-        print(u'%s 分钟合计数据为:\n %s' % (interval, pprint.pformat(interval_sum_dict)))
-        self.logger.info(u'%s 分钟合计数据为::\n %s', interval, pprint.pformat(interval_sum_dict))
+        interval_sum_dict = OrderedDict(
+            {'KDKD': list(), 'KDKK': list(), 'KDPD': list(), 'PDPD': list(), 'PDPK': list(), 'PDKD': list(),
+             'KKKK': list(), 'KKKD': list(), 'KKPK': list(), 'PKPK': list(), 'PKKK': list(), 'PKPD': list(),
+             'SHSK': list(), 'SHSP': list(), 'XHSK': list(), 'XHSP': list(), 'ZUIG': list(), 'ZUID': list(),
+             'KPAN': list(), 'SPAN': list()})
+
+        number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
+        self.logger.debug(u'对所有数据进行按照%s分钟的间隔，共被分割为%s段的数据', interval, number_of_interval)
+        print(u'对所有数据进行按照%s分钟的间隔，共被分割为%s段的数据' % (interval, number_of_interval))
+
+        temp_sum = EMPTY_TEMP_SUM_DICT
+        timestamp_list = list()
+        for each_loop in range(1, number_of_interval):
+            reset_dict(temp_sum)
+            for each in self.data_dict.values():
+                if 0 <= each['SHIJ'] - self.first_record_timestamp < FENZHONG_1 * int(interval):
+                    temp_sum['KDKD'] += each['KDKD']
+                    temp_sum['KDKK'] += each['KDKK']
+                    temp_sum['KDPD'] += each['KDPD']
+                    temp_sum['PKPK'] += each['PKPK']
+                    temp_sum['PKKK'] += each['PKKK']
+                    temp_sum['PKPD'] += each['PKPD']
+                    temp_sum['PDPD'] += each['PDPD']
+                    temp_sum['PDKD'] += each['PDKD']
+                    temp_sum['PDPK'] += each['PDPK']
+                    temp_sum['KKKK'] += each['KKKK']
+                    temp_sum['KKKD'] += each['KKKD']
+                    temp_sum['KKPK'] += each['KKPK']
+                    temp_sum['SHSP'] += each['SHSP']
+                    temp_sum['SHSK'] += each['SHSK']
+                    temp_sum['XHSP'] += each['XHSP']
+                    temp_sum['XHSK'] += each['XHSK']
+                    temp_sum['ZUIG'].append(each['JIAG'])
+                    temp_sum['ZUID'].append(each['JIAG'])
+
+            temp_sum['ZUIG'] = max(temp_sum['ZUIG']) if temp_sum['ZUIG'] else 0
+            temp_sum['ZUID'] = min(temp_sum['ZUID']) if temp_sum['ZUID'] else 0
+            temp_sum['KPAN'] = self.data_dict[len(self.data_dict.keys()) - 1]['JIAG']
+            temp_sum['SPAN'] = self.data_dict[0]['JIAG']
+
+            new_first_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
+            validate_value_dict = deepcopy(temp_sum)
+            # 删除永远不为零的4个元素
+            validate_value_dict.pop('ZUIG')
+            validate_value_dict.pop('ZUID')
+            validate_value_dict.pop('KPAN')
+            validate_value_dict.pop('SPAN')
+            if any(validate_value_dict.values()):
+                timestamp_list.append(u'%s - %s' %
+                                      (time.strftime('%H:%M', time.localtime(self.first_record_timestamp)),
+                                       time.strftime('%H:%M', time.localtime(new_first_record_timestamp))))
+                interval_sum_dict['KDKD'].append(temp_sum['KDKD'])
+                interval_sum_dict['KDKK'].append(temp_sum['KDKK'])
+                interval_sum_dict['KDPD'].append(temp_sum['KDPD'])
+                interval_sum_dict['PKPK'].append(temp_sum['PKPK'])
+                interval_sum_dict['PKKK'].append(temp_sum['PKKK'])
+                interval_sum_dict['PKPD'].append(temp_sum['PKPD'])
+                interval_sum_dict['PDPD'].append(temp_sum['PDPD'])
+                interval_sum_dict['PDKD'].append(temp_sum['PDKD'])
+                interval_sum_dict['PDPK'].append(temp_sum['PDPK'])
+                interval_sum_dict['KKKK'].append(temp_sum['KKKK'])
+                interval_sum_dict['KKKD'].append(temp_sum['KKKD'])
+                interval_sum_dict['KKPK'].append(temp_sum['KKPK'])
+                interval_sum_dict['SHSP'].append(temp_sum['SHSP'])
+                interval_sum_dict['SHSK'].append(temp_sum['SHSK'])
+                interval_sum_dict['XHSP'].append(temp_sum['XHSP'])
+                interval_sum_dict['XHSK'].append(temp_sum['XHSK'])
+                interval_sum_dict['ZUIG'].append(temp_sum['ZUIG'])
+                interval_sum_dict['ZUID'].append(temp_sum['ZUID'])
+                interval_sum_dict['KPAN'].append(temp_sum['KPAN'])
+                interval_sum_dict['SPAN'].append(temp_sum['SPAN'])
+            else:
+                # print(u'所有值都为0，放弃当前行更新到表。\n%s' % pprint.pformat(temp_sum))
+                pass
+
+            self.first_record_timestamp = new_first_record_timestamp
+            # self.logger.debug(u'更新起始时间戳为：%s',
+            #                  time.strftime('%Y-%m-%d,%H:%M', time.localtime(new_first_record_timestamp)))
+
+        interval_table = PrettyTable()
+        interval_table.padding_width = 1
+        interval_table.add_column(u'名称', timestamp_list)
+        for (k, v) in interval_sum_dict.iteritems():
+            interval_table.add_column(KEY_DICT[k], v)
+
+        self.logger.info(u'%s 分钟合计数据为::\n %s', interval, interval_table)
+        print(u'%s 分钟合计数据为:\n %s' % (interval, interval_table))
 
 
 def main():
@@ -264,12 +327,9 @@ def main():
     data_handler.read_file(redis_client)
     data_handler.generate_dynamic_data()
     # data_handler.print_to_file()
-    data_handler.print_as_text()
+    # data_handler.print_as_text()
     data_handler.read_all_sum()
-    data_handler.read_interval_sum(30)
     data_handler.read_interval_sum(15)
-    data_handler.read_interval_sum(5)
-    data_handler.read_interval_sum(1)
 
 
 if __name__ == '__main__':
