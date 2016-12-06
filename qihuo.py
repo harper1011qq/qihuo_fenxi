@@ -38,6 +38,27 @@ ALL_SUM_DICT = {
     'KKKK': 0, 'KKKD': 0, 'KKPK': 0, 'SHSP': 0, 'SHSK': 0, 'XHSP': 0, 'XHSK': 0, 'KPAN': 0, 'SPAN': 0,
     'ZUIG': list(), 'ZUID': list()
 }
+INTERVAL_SUM_DICT = OrderedDict()
+INTERVAL_SUM_DICT['KDKD'] = list()
+INTERVAL_SUM_DICT['KDKK'] = list()
+INTERVAL_SUM_DICT['KDPD'] = list()
+INTERVAL_SUM_DICT['PDPD'] = list()
+INTERVAL_SUM_DICT['PDPK'] = list()
+INTERVAL_SUM_DICT['PDKD'] = list()
+INTERVAL_SUM_DICT['KKKK'] = list()
+INTERVAL_SUM_DICT['KKKD'] = list()
+INTERVAL_SUM_DICT['KKPK'] = list()
+INTERVAL_SUM_DICT['PKPK'] = list()
+INTERVAL_SUM_DICT['PKKK'] = list()
+INTERVAL_SUM_DICT['PKPD'] = list()
+INTERVAL_SUM_DICT['SHSK'] = list()
+INTERVAL_SUM_DICT['SHSP'] = list()
+INTERVAL_SUM_DICT['XHSK'] = list()
+INTERVAL_SUM_DICT['XHSP'] = list()
+INTERVAL_SUM_DICT['ZUIG'] = list()
+INTERVAL_SUM_DICT['ZUID'] = list()
+INTERVAL_SUM_DICT['KPAN'] = list()
+INTERVAL_SUM_DICT['SPAN'] = list()
 
 handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1024 * 1024)
 fmt = '%(asctime)s - %(filename)s:%(lineno)s - %(message)s'
@@ -228,16 +249,19 @@ class DataHandler(object):
         ALL_SUM_DICT['KPAN'] = self.data_dict[len(self.data_dict.keys()) - 1]['JIAG']
         ALL_SUM_DICT['SPAN'] = self.data_dict[0]['JIAG']
 
-        print(u'所有汇总数据为:\n %s' % pprint.pformat(ALL_SUM_DICT))
-        self.logger.info(u'所有汇总数据为:\n %s', pprint.pformat(ALL_SUM_DICT))
+        # print(u'所有汇总数据为:\n %s' % pprint.pformat(ALL_SUM_DICT))
+        # self.logger.info(u'所有汇总数据为:\n %s', pprint.pformat(ALL_SUM_DICT))
+
+        all_sum_table = PrettyTable([u'名称', u'数值'], padding_width=1, border=False)
+        all_sum_table.align[u'名称'] = "l"
+        all_sum_table.align[u'数值'] = "l"
+        for (k, v) in ALL_SUM_DICT.iteritems():
+            all_sum_table.add_row([KEY_DICT[k], v])
+
+        self.logger.info(u'汇总数据为::\n %s', all_sum_table)
+        print(u'汇总数据为:\n %s' % (all_sum_table))
 
     def read_interval_sum(self, interval):
-        interval_sum_dict = OrderedDict(
-            {'KDKD': list(), 'KDKK': list(), 'KDPD': list(), 'PDPD': list(), 'PDPK': list(), 'PDKD': list(),
-             'KKKK': list(), 'KKKD': list(), 'KKPK': list(), 'PKPK': list(), 'PKKK': list(), 'PKPD': list(),
-             'SHSK': list(), 'SHSP': list(), 'XHSK': list(), 'XHSP': list(), 'ZUIG': list(), 'ZUID': list(),
-             'KPAN': list(), 'SPAN': list()})
-
         number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
         self.logger.debug(u'对所有数据进行按照%s分钟的间隔，共被分割为%s段的数据', interval, number_of_interval)
         print(u'对所有数据进行按照%s分钟的间隔，共被分割为%s段的数据' % (interval, number_of_interval))
@@ -280,41 +304,40 @@ class DataHandler(object):
             validate_value_dict.pop('KPAN')
             validate_value_dict.pop('SPAN')
             if any(validate_value_dict.values()):
-                timestamp_list.append(u'%s - %s' %
+                timestamp_list.append(u'%s-%s' %
                                       (time.strftime('%H:%M', time.localtime(self.first_record_timestamp)),
                                        time.strftime('%H:%M', time.localtime(new_first_record_timestamp))))
-                interval_sum_dict['KDKD'].append(temp_sum['KDKD'])
-                interval_sum_dict['KDKK'].append(temp_sum['KDKK'])
-                interval_sum_dict['KDPD'].append(temp_sum['KDPD'])
-                interval_sum_dict['PKPK'].append(temp_sum['PKPK'])
-                interval_sum_dict['PKKK'].append(temp_sum['PKKK'])
-                interval_sum_dict['PKPD'].append(temp_sum['PKPD'])
-                interval_sum_dict['PDPD'].append(temp_sum['PDPD'])
-                interval_sum_dict['PDKD'].append(temp_sum['PDKD'])
-                interval_sum_dict['PDPK'].append(temp_sum['PDPK'])
-                interval_sum_dict['KKKK'].append(temp_sum['KKKK'])
-                interval_sum_dict['KKKD'].append(temp_sum['KKKD'])
-                interval_sum_dict['KKPK'].append(temp_sum['KKPK'])
-                interval_sum_dict['SHSP'].append(temp_sum['SHSP'])
-                interval_sum_dict['SHSK'].append(temp_sum['SHSK'])
-                interval_sum_dict['XHSP'].append(temp_sum['XHSP'])
-                interval_sum_dict['XHSK'].append(temp_sum['XHSK'])
-                interval_sum_dict['ZUIG'].append(temp_sum['ZUIG'])
-                interval_sum_dict['ZUID'].append(temp_sum['ZUID'])
-                interval_sum_dict['KPAN'].append(temp_sum['KPAN'])
-                interval_sum_dict['SPAN'].append(temp_sum['SPAN'])
+                INTERVAL_SUM_DICT['KDKD'].append(temp_sum['KDKD'])
+                INTERVAL_SUM_DICT['KDKK'].append(temp_sum['KDKK'])
+                INTERVAL_SUM_DICT['KDPD'].append(temp_sum['KDPD'])
+                INTERVAL_SUM_DICT['PKPK'].append(temp_sum['PKPK'])
+                INTERVAL_SUM_DICT['PKKK'].append(temp_sum['PKKK'])
+                INTERVAL_SUM_DICT['PKPD'].append(temp_sum['PKPD'])
+                INTERVAL_SUM_DICT['PDPD'].append(temp_sum['PDPD'])
+                INTERVAL_SUM_DICT['PDKD'].append(temp_sum['PDKD'])
+                INTERVAL_SUM_DICT['PDPK'].append(temp_sum['PDPK'])
+                INTERVAL_SUM_DICT['KKKK'].append(temp_sum['KKKK'])
+                INTERVAL_SUM_DICT['KKKD'].append(temp_sum['KKKD'])
+                INTERVAL_SUM_DICT['KKPK'].append(temp_sum['KKPK'])
+                INTERVAL_SUM_DICT['SHSP'].append(temp_sum['SHSP'])
+                INTERVAL_SUM_DICT['SHSK'].append(temp_sum['SHSK'])
+                INTERVAL_SUM_DICT['XHSP'].append(temp_sum['XHSP'])
+                INTERVAL_SUM_DICT['XHSK'].append(temp_sum['XHSK'])
+                INTERVAL_SUM_DICT['ZUIG'].append(temp_sum['ZUIG'])
+                INTERVAL_SUM_DICT['ZUID'].append(temp_sum['ZUID'])
+                INTERVAL_SUM_DICT['KPAN'].append(temp_sum['KPAN'])
+                INTERVAL_SUM_DICT['SPAN'].append(temp_sum['SPAN'])
             else:
                 # print(u'所有值都为0，放弃当前行更新到表。\n%s' % pprint.pformat(temp_sum))
                 pass
 
             self.first_record_timestamp = new_first_record_timestamp
-            # self.logger.debug(u'更新起始时间戳为：%s',
-            #                  time.strftime('%Y-%m-%d,%H:%M', time.localtime(new_first_record_timestamp)))
+            # self.logger.debug(u'更新起始时间戳为：%s', time.strftime('%Y-%m-%d,%H:%M', time.localtime(
+            # new_first_record_timestamp)))
 
-        interval_table = PrettyTable()
-        interval_table.padding_width = 1
+        interval_table = PrettyTable(border=False)
         interval_table.add_column(u'名称', timestamp_list)
-        for (k, v) in interval_sum_dict.iteritems():
+        for (k, v) in INTERVAL_SUM_DICT.iteritems():
             interval_table.add_column(KEY_DICT[k], v)
 
         self.logger.info(u'%s 分钟合计数据为::\n %s', interval, interval_table)
