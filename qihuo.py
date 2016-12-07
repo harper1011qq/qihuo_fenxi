@@ -71,6 +71,8 @@ def fill_order_dict(data_dict):
     data_dict['ZUID'] = list()
     data_dict['KPAN'] = list()
     data_dict['SPAN'] = list()
+    data_dict['ZUIG'] = list()
+    data_dict['ZUID'] = list()
     return data_dict
 
 
@@ -91,11 +93,12 @@ class DataHandler(object):
         self.entry_name = name
         self.cfg_file = self.read_config_file()
         self.entry_data = self.cfg_file[name]
-        self.all_data_dict = EMPTY__DATA_DICT
-        self.non_filter_data = EMPTY__DATA_DICT
-        self.big_data_dict = EMPTY__DATA_DICT
-        self.middle_data_dict = EMPTY__DATA_DICT
-        self.small_data_dict = EMPTY__DATA_DICT
+        self.timestamp_list = list()
+        self.all_data_dict = deepcopy(EMPTY__DATA_DICT)
+        self.non_filter_data = deepcopy(EMPTY__DATA_DICT)
+        self.big_data_dict = deepcopy(EMPTY__DATA_DICT)
+        self.middle_data_dict = deepcopy(EMPTY__DATA_DICT)
+        self.small_data_dict = deepcopy(EMPTY__DATA_DICT)
 
         self.non_filter_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
         self.big_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
@@ -150,6 +153,10 @@ class DataHandler(object):
                         'SHSK': 0,  # 上换手开
                         'XHSP': 0,  # 下换手平
                         'XHSK': 0,  # 下换手开
+                        'KPAN': 0,  # 开盘价
+                        'SPAN': 0,  # 收盘价
+                        'ZUIG': 0,  # 最高价
+                        'ZUID': 0.  # 最低价
                     }
                     # redis_client.write_data(str(index), json.dumps(data_dict, ensure_ascii=False))
                 else:
@@ -251,7 +258,7 @@ class DataHandler(object):
 
     def read_all_sum(self):
         for each in self.datadict.values():
-            self.all_data_dict = self.pack_data_into_dict(each, self.all_data_dict, filter_range=(MIN, MAX))
+            self.pack_data_into_dict(each, self.all_data_dict, filter_range=(MIN, MAX))
         self.all_data_dict['ZUIG'] = max(self.all_data_dict['ZUIG'])
         self.all_data_dict['ZUID'] = min(self.all_data_dict['ZUID'])
         self.all_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
@@ -283,10 +290,6 @@ class DataHandler(object):
                  interval, number_of_interval))
 
         self.non_filter_data = EMPTY__DATA_DICT
-        timestamp_list = list()
-        big_printout_dict = dict()
-        middle_printout_dict = dict()
-        small_printout_dict = dict()
         for each_loop in range(1, number_of_interval):
             reset_dict(self.non_filter_data)
             reset_dict(self.big_data_dict)
@@ -314,29 +317,40 @@ class DataHandler(object):
             self.non_filter_data['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
             self.non_filter_data['SPAN'] = self.datadict[0]['JIAG']
 
-            self.cleanup_printout_table_dict(interval, self.non_filter_printout_dict, self.non_filter_data,
-                                             timestamp_list)
-            self.cleanup_printout_table_dict(interval, self.big_printout_dict, self.big_data_dict,
-                                             timestamp_list)
-            self.cleanup_printout_table_dict(interval, self.middle_printout_dict, self.middle_data_dict,
-                                             timestamp_list)
-            self.cleanup_printout_table_dict(interval, self.small_printout_dict, self.small_data_dict,
-                                             timestamp_list)
+            self.big_data_dict['ZUIG'] = max(self.big_data_dict['ZUIG']) if self.big_data_dict['ZUIG'] else 0
+            self.big_data_dict['ZUID'] = min(self.big_data_dict['ZUID']) if self.big_data_dict['ZUID'] else 0
+            self.big_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
+            self.big_data_dict['SPAN'] = self.datadict[0]['JIAG']
 
-        self.print_generated_table(interval, self.non_filter_printout_dict, timestamp_list, u'无过滤')
-        self.print_generated_table(interval, self.big_printout_dict, timestamp_list, u'大单')
-        self.print_generated_table(interval, self.middle_printout_dict, timestamp_list, u'中单')
-        self.print_generated_table(interval, self.small_printout_dict, timestamp_list, u'小单')
+            self.middle_data_dict['ZUIG'] = max(self.middle_data_dict['ZUIG']) if self.middle_data_dict['ZUIG'] else 0
+            self.middle_data_dict['ZUID'] = min(self.middle_data_dict['ZUID']) if self.middle_data_dict['ZUID'] else 0
+            self.middle_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
+            self.middle_data_dict['SPAN'] = self.datadict[0]['JIAG']
 
-    def print_generated_table(self, interval, printout_dict, timestamp_list, string_name):
-        non_filter_table = PrettyTable(border=False)
-        non_filter_table.add_column(u'名称: ' + string_name, timestamp_list)
+            self.small_data_dict['ZUIG'] = max(self.small_data_dict['ZUIG']) if self.small_data_dict['ZUIG'] else 0
+            self.small_data_dict['ZUID'] = min(self.small_data_dict['ZUID']) if self.small_data_dict['ZUID'] else 0
+            self.small_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
+            self.small_data_dict['SPAN'] = self.datadict[0]['JIAG']
+
+            self.cleanup_non_filter_printout_table_dict(interval, self.non_filter_printout_dict, self.non_filter_data)
+            self.cleanup_filter_printout_table_dict(self.big_printout_dict, self.big_data_dict)
+            self.cleanup_filter_printout_table_dict(self.middle_printout_dict, self.middle_data_dict)
+            self.cleanup_filter_printout_table_dict(self.small_printout_dict, self.small_data_dict)
+
+        self.print_generated_table(interval, self.non_filter_printout_dict, u'无过滤')
+        self.print_generated_table(interval, self.big_printout_dict, u'大单')
+        self.print_generated_table(interval, self.middle_printout_dict, u'中单')
+        self.print_generated_table(interval, self.small_printout_dict, u'小单')
+
+    def print_generated_table(self, interval, printout_dict, string_name):
+        printout_table = PrettyTable(border=False)
+        printout_table.add_column(u'名称(' + string_name + ')', self.timestamp_list)
         for (k, v) in printout_dict.iteritems():
-            non_filter_table.add_column(KEY_DICT[k], v)
-        self.logger.info(u'%s分钟间隔合计数据为:\n %s', interval, non_filter_table)
-        print(u'%s分钟间隔合计数据为:\n %s' % (interval, non_filter_table))
+            printout_table.add_column(KEY_DICT[k], v)
+        self.logger.info(u'%s分钟间隔合计数据为:\n %s', interval, printout_table)
+        print(u'%s分钟间隔合计数据为:\n %s' % (interval, printout_table))
 
-    def cleanup_printout_table_dict(self, interval, non_filter_printout_dict, data_dict, timestamp_list):
+    def cleanup_non_filter_printout_table_dict(self, interval, non_filter_printout_dict, data_dict):
         updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
         validate_value_dict = deepcopy(data_dict)
         # 删除永远不为零的4个元素
@@ -345,17 +359,23 @@ class DataHandler(object):
         if any(validate_value_dict.values()):
             start_time = time.strftime('%H:%M', time.localtime(self.first_record_timestamp))
             end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
-            timestamp_list.append(u'%s-%s' % (start_time, end_time))
-            self.first_record_timestamp = updated_record_timestamp
-            return self.update_printout_dict(non_filter_printout_dict, data_dict)
+            self.timestamp_list.append(u'%s-%s' % (start_time, end_time))
+            for key in EMPTY__DATA_DICT.keys():
+                non_filter_printout_dict[key].append(data_dict[key])
         else:
-            self.first_record_timestamp = updated_record_timestamp
+            pass
+        self.first_record_timestamp = updated_record_timestamp
 
-    @staticmethod
-    def update_printout_dict(non_filter_printout_dict, data_dict):
-        for key in EMPTY__DATA_DICT.keys():
-            non_filter_printout_dict[key].append(data_dict[key])
-        return non_filter_printout_dict
+    def cleanup_filter_printout_table_dict(self, filter_printout_dict, data_dict):
+        validate_value_dict = deepcopy(data_dict)
+        # 删除永远不为零的4个元素
+        for key in NON_ZERO_LIST:
+            validate_value_dict.pop(key)
+        if any(validate_value_dict.values()):
+            for key in EMPTY__DATA_DICT.keys():
+                filter_printout_dict[key].append(data_dict[key])
+        else:
+            pass
 
     def pack_data_into_dict(self, each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
