@@ -85,8 +85,9 @@ def reset_dict(dict_data):
 
 
 class DataHandler(object):
-    def __init__(self, name=None):
+    def __init__(self, name=None, border=False):
         self.logger = logger
+        self.border = border
         self.datadict = OrderedDict()
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
@@ -99,11 +100,13 @@ class DataHandler(object):
         self.big_data_dict = deepcopy(EMPTY__DATA_DICT)
         self.middle_data_dict = deepcopy(EMPTY__DATA_DICT)
         self.small_data_dict = deepcopy(EMPTY__DATA_DICT)
+        self.other_data_dict = deepcopy(EMPTY__DATA_DICT)
 
         self.non_filter_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
         self.big_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
         self.middle_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
         self.small_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
+        self.other_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
 
     def read_config_file(self):
         with open(CONFIG_NAME) as cfg_file:
@@ -264,7 +267,7 @@ class DataHandler(object):
         self.all_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
         self.all_data_dict['SPAN'] = self.datadict[0]['JIAG']
 
-        all_sum_table = PrettyTable([u'名称', u'全部数据'], padding_width=1, border=False)
+        all_sum_table = PrettyTable([u'名称', u'全部数据'], padding_width=1, border=self.border)
         all_sum_table.align = 'l'
 
         for (k, v) in self.all_data_dict.iteritems():
@@ -295,6 +298,7 @@ class DataHandler(object):
             reset_dict(self.big_data_dict)
             reset_dict(self.middle_data_dict)
             reset_dict(self.small_data_dict)
+            reset_dict(self.other_data_dict)
             for each in self.datadict.values():
                 if 0 <= each['SHIJ'] - self.first_record_timestamp < FENZHONG_1 * int(interval):
                     # 无过滤条件
@@ -311,6 +315,10 @@ class DataHandler(object):
                     self.pack_data_into_dict(each, self.small_data_dict,
                                              filter_range=(self.cfg_file[self.entry_name]['small'],
                                                            self.cfg_file[self.entry_name]['middle']))
+                    # 其他
+                    self.pack_data_into_dict(each, self.other_data_dict,
+                                             filter_range=(MIN, self.cfg_file[self.entry_name]['small']))
+
 
             self.non_filter_data['ZUIG'] = max(self.non_filter_data['ZUIG']) if self.non_filter_data['ZUIG'] else 0
             self.non_filter_data['ZUID'] = min(self.non_filter_data['ZUID']) if self.non_filter_data['ZUID'] else 0
@@ -332,18 +340,25 @@ class DataHandler(object):
             self.small_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
             self.small_data_dict['SPAN'] = self.datadict[0]['JIAG']
 
+            self.other_data_dict['ZUIG'] = max(self.other_data_dict['ZUIG']) if self.other_data_dict['ZUIG'] else 0
+            self.other_data_dict['ZUID'] = min(self.other_data_dict['ZUID']) if self.other_data_dict['ZUID'] else 0
+            self.other_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
+            self.other_data_dict['SPAN'] = self.datadict[0]['JIAG']
+
             self.cleanup_non_filter_printout_table_dict(interval, self.non_filter_printout_dict, self.non_filter_data)
             self.cleanup_filter_printout_table_dict(self.big_printout_dict, self.big_data_dict)
             self.cleanup_filter_printout_table_dict(self.middle_printout_dict, self.middle_data_dict)
             self.cleanup_filter_printout_table_dict(self.small_printout_dict, self.small_data_dict)
+            self.cleanup_filter_printout_table_dict(self.other_printout_dict, self.other_data_dict)
 
         self.print_generated_table(interval, self.non_filter_printout_dict, u'无过滤')
         self.print_generated_table(interval, self.big_printout_dict, u'大单')
         self.print_generated_table(interval, self.middle_printout_dict, u'中单')
         self.print_generated_table(interval, self.small_printout_dict, u'小单')
+        self.print_generated_table(interval, self.other_printout_dict, u'其他')
 
     def print_generated_table(self, interval, printout_dict, string_name):
-        printout_table = PrettyTable(border=False)
+        printout_table = PrettyTable(border=self.border)
         printout_table.add_column(u'名称(' + string_name + ')', self.timestamp_list)
         for (k, v) in printout_dict.iteritems():
             printout_table.add_column(KEY_DICT[k], v)
@@ -356,12 +371,12 @@ class DataHandler(object):
         # 删除永远不为零的4个元素
         for key in NON_ZERO_LIST:
             validate_value_dict.pop(key)
-        if any(validate_value_dict.values()):
-            start_time = time.strftime('%H:%M', time.localtime(self.first_record_timestamp))
-            end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
-            self.timestamp_list.append(u'%s-%s' % (start_time, end_time))
-            for key in EMPTY__DATA_DICT.keys():
-                non_filter_printout_dict[key].append(data_dict[key])
+        # if any(validate_value_dict.values()):
+        start_time = time.strftime('%H:%M', time.localtime(self.first_record_timestamp))
+        end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
+        self.timestamp_list.append(u'%s-%s' % (start_time, end_time))
+        for key in EMPTY__DATA_DICT.keys():
+            non_filter_printout_dict[key].append(data_dict[key])
         else:
             pass
         self.first_record_timestamp = updated_record_timestamp
@@ -371,9 +386,9 @@ class DataHandler(object):
         # 删除永远不为零的4个元素
         for key in NON_ZERO_LIST:
             validate_value_dict.pop(key)
-        if any(validate_value_dict.values()):
-            for key in EMPTY__DATA_DICT.keys():
-                filter_printout_dict[key].append(data_dict[key])
+        # if any(validate_value_dict.values()):
+        for key in EMPTY__DATA_DICT.keys():
+            filter_printout_dict[key].append(data_dict[key])
         else:
             pass
 
@@ -390,9 +405,9 @@ class DataHandler(object):
         return data_dict
 
 
-def main(interval=None, name=None):
+def main(interval=None, name=None, border=False):
     redis_client = None  # RedisConnection()
-    data_handler = DataHandler(name=name)
+    data_handler = DataHandler(name=name, border=border)
     data_handler.read_file(redis_client)
     data_handler.generate_dynamic_data()
     # data_handler.print_to_file()
@@ -405,6 +420,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--interval', default=30, help=u'间隔时间，时间单位为分钟。')
     parser.add_argument('-n', '--name', help=u'配置信息名称', required=True)
+    parser.add_argument('--border', default=False, action='store_true', help=u'是否显示表格边框，默认为不显示。')
     args = parser.parse_args()
 
-    main(interval=int(args.interval), name=args.name)
+    main(interval=int(args.interval), name=args.name, border=args.border)
