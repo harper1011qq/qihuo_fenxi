@@ -5,5 +5,12 @@
     "big": 500,
     "middle": 300,
     "small": 100
+  },
+  "cuiya": {
+    "chinese": "翠芽",
+    "filename": "cuiya1.txt",
+    "big": 500,
+    "middle": 300,
+    "small": 100
   }
 }

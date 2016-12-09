@@ -11,12 +11,15 @@ import time
 from collections import OrderedDict
 from copy import deepcopy
 
+import requests
+from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
 LOG_FILE = 'qihuo.log'
 FILE_NAME = 'baicha1.txt'
 CONFIG_NAME = 'config.json'
 TEXT_EXCEL_FILE_NAME = 'temp.file.txt'
+INFLUX_DB_NAME = 'qihuo'
 
 FENZHONG_1 = 60
 FENZHONG_5 = 5 * FENZHONG_1
@@ -91,9 +94,9 @@ class DataHandler(object):
         self.datadict = OrderedDict()
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
-        self.entry_name = name
+        self.config_name = name
         self.cfg_file = self.read_config_file()
-        self.entry_data = self.cfg_file[name]
+        self.config_data = self.cfg_file[name]
         self.timestamp_list = list()
         self.all_data_dict = deepcopy(EMPTY__DATA_DICT)
         self.non_filter_data = deepcopy(EMPTY__DATA_DICT)
@@ -112,7 +115,7 @@ class DataHandler(object):
         with open(CONFIG_NAME) as cfg_file:
             file_data = json.load(cfg_file, encoding='utf-8')
         cfg_print_tbl = PrettyTable(['变量名', '数值'])
-        for (k, v) in file_data[self.entry_name].iteritems():
+        for (k, v) in file_data[self.config_name].iteritems():
             cfg_print_tbl.add_row([k, v])
         self.logger.debug(u'配置文件内容为：\n%s', cfg_print_tbl)
         print(u'配置文件内容为：\n%s' % cfg_print_tbl)
@@ -121,7 +124,7 @@ class DataHandler(object):
     def read_file(self, redis_client):
         start_time = time.time()
         index = 0
-        with open('%s' % self.cfg_file[self.entry_name]['filename'], 'r') as data_file:
+        with open('%s' % self.cfg_file[self.config_name]['filename'], 'r') as data_file:
             while True:
                 line = data_file.readline()
                 if line:
@@ -138,7 +141,8 @@ class DataHandler(object):
                         'CANGL': int(data_elements[5]) if data_elements[5] else 0,  # 仓量
                         'KAIC': int(data_elements[9]) if data_elements[9] else 0,  # 开仓
                         'PINGC': int(data_elements[10] if data_elements[10] else 0),  # 平仓
-                        'FANGX': data_elements[11].strip() if data_elements[11] else 0,  # 方向
+                        # 'FANGX': data_elements[11].strip() if data_elements[11] else 0,  # 方向
+                        'FANGX': 'fangxiang',  # 方向
                         'WEIZ': 0,  # 交易位置
                         'KDKD': 0,  # 开多开多
                         'KDKK': 0,  # 开多开空
@@ -273,23 +277,23 @@ class DataHandler(object):
         for (k, v) in self.all_data_dict.iteritems():
             all_sum_table.add_row([KEY_DICT[k], v])
         self.logger.info(u'\"%s\"的汇总数据为:(数据源:%s)\n %s',
-                         self.cfg_file[self.entry_name]['chinese'],
-                         self.cfg_file[self.entry_name]['filename'],
+                         self.cfg_file[self.config_name]['chinese'],
+                         self.cfg_file[self.config_name]['filename'],
                          all_sum_table)
         print(u'\"%s\"的汇总数据为:(数据源:%s)\n %s' %
-              (self.cfg_file[self.entry_name]['chinese'],
-               self.cfg_file[self.entry_name]['filename'],
+              (self.cfg_file[self.config_name]['chinese'],
+               self.cfg_file[self.config_name]['filename'],
                all_sum_table))
 
     def read_interval_sum(self, interval):
         number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
         self.logger.debug(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据',
-                          self.cfg_file[self.entry_name]['chinese'],
-                          self.cfg_file[self.entry_name]['filename'],
+                          self.cfg_file[self.config_name]['chinese'],
+                          self.cfg_file[self.config_name]['filename'],
                           interval, number_of_interval)
         print(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据'
-              % (self.cfg_file[self.entry_name]['chinese'],
-                 self.cfg_file[self.entry_name]['filename'],
+              % (self.cfg_file[self.config_name]['chinese'],
+                 self.cfg_file[self.config_name]['filename'],
                  interval, number_of_interval))
 
         self.non_filter_data = EMPTY__DATA_DICT
@@ -306,19 +310,18 @@ class DataHandler(object):
                                              filter_range=(MIN, MAX))
                     # 大单
                     self.pack_data_into_dict(each, self.big_data_dict,
-                                             filter_range=(self.cfg_file[self.entry_name]['big'], MAX))
+                                             filter_range=(self.cfg_file[self.config_name]['big'], MAX))
                     # 中单
                     self.pack_data_into_dict(each, self.middle_data_dict,
-                                             filter_range=(self.cfg_file[self.entry_name]['middle'],
-                                                           self.cfg_file[self.entry_name]['big']))
+                                             filter_range=(self.cfg_file[self.config_name]['middle'],
+                                                           self.cfg_file[self.config_name]['big']))
                     # 小单
                     self.pack_data_into_dict(each, self.small_data_dict,
-                                             filter_range=(self.cfg_file[self.entry_name]['small'],
-                                                           self.cfg_file[self.entry_name]['middle']))
+                                             filter_range=(self.cfg_file[self.config_name]['small'],
+                                                           self.cfg_file[self.config_name]['middle']))
                     # 其他
                     self.pack_data_into_dict(each, self.other_data_dict,
-                                             filter_range=(MIN, self.cfg_file[self.entry_name]['small']))
-
+                                             filter_range=(MIN, self.cfg_file[self.config_name]['small']))
 
             self.non_filter_data['ZUIG'] = max(self.non_filter_data['ZUIG']) if self.non_filter_data['ZUIG'] else 0
             self.non_filter_data['ZUID'] = min(self.non_filter_data['ZUID']) if self.non_filter_data['ZUID'] else 0
@@ -404,6 +407,45 @@ class DataHandler(object):
                     data_dict[key] += each[key]
         return data_dict
 
+    @staticmethod
+    def generate_point_string_data(name, time, data):
+        return {
+            "measurement": name,
+            "time": time,
+            "fields": {
+                "data": data
+            }
+        }
+
+    def influxdb_test(self):
+        client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
+        client.create_database(INFLUX_DB_NAME)
+
+        start_time = time.time()
+        json_body = list()
+        for (k, v) in self.datadict.iteritems():
+            point_string_data = self.generate_point_string_data(self.config_name,
+                                                                int(v['SHIJ']) * 1000 + k % 1000,
+                                                                json.dumps(v))
+            json_body.append(point_string_data)
+        client.write_points(json_body, time_precision='ms')
+        self.logger.debug('Write TIME TAKEN: %s', time.time() - start_time)
+
+        start_time = time.time()
+        endpoint_url = 'http://localhost:8086/query'
+        query_cmd = 'select * from %s' % self.config_name
+        params = {
+            'q': query_cmd,
+            'db': INFLUX_DB_NAME,
+            'epoch': 'ms'
+        }
+        self.logger.debug('InfluxDB query: url=>%s params=>%s', endpoint_url, params)
+        response = requests.get(endpoint_url, params=params, timeout=5)
+        self.logger.debug('Query TIME TAKEN: %s', time.time() - start_time)
+        self.logger.debug("Result type:\n%s", len(response.json()['results'][0]['series'][0]['values']))
+        for each in response.json()['results'][0]['series'][0]['values']:
+            self.logger.debug("Result data:\n%s", pprint.pformat(each[0]))
+
 
 def main(interval=None, name=None, border=False):
     redis_client = None  # RedisConnection()
@@ -412,8 +454,9 @@ def main(interval=None, name=None, border=False):
     data_handler.generate_dynamic_data()
     # data_handler.print_to_file()
     # data_handler.print_as_text()
-    data_handler.read_all_sum()
-    data_handler.read_interval_sum(interval)
+    # data_handler.read_all_sum()
+    # data_handler.read_interval_sum(interval)
+    data_handler.influxdb_test()
 
 
 if __name__ == '__main__':
