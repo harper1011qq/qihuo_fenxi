@@ -94,6 +94,7 @@ class DataHandler(object):
         self.datadict = OrderedDict()
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
+        self.endpoint_url = 'http://localhost:8086/query'
         self.config_name = name
         self.cfg_file = self.read_config_file()
         self.config_data = self.cfg_file[name]
@@ -408,55 +409,69 @@ class DataHandler(object):
         return data_dict
 
     @staticmethod
-    def generate_point_string_data(name, time, data):
+    def get_point_str_data(name, time, data):
         return {
             "measurement": name,
             "time": time,
-            "fields": {
-                "data": data
-            }
+            "fields": data
         }
 
-    def influxdb_test(self):
-        client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
-        client.create_database(INFLUX_DB_NAME)
+    def load_dynamic_data_into_influxdb(self):
+        self.create_database()
+        self.write_data_into_db()
+        self.query_data_from_db()
 
+    def query_data_from_db(self):
         start_time = time.time()
-        json_body = list()
-        for (k, v) in self.datadict.iteritems():
-            point_string_data = self.generate_point_string_data(self.config_name,
-                                                                int(v['SHIJ']) * 1000 + k % 1000,
-                                                                json.dumps(v))
-            json_body.append(point_string_data)
-        client.write_points(json_body, time_precision='ms')
-        self.logger.debug('Write TIME TAKEN: %s', time.time() - start_time)
-
-        start_time = time.time()
-        endpoint_url = 'http://localhost:8086/query'
         query_cmd = 'select * from %s' % self.config_name
-        params = {
+        query_params = {
             'q': query_cmd,
             'db': INFLUX_DB_NAME,
             'epoch': 'ms'
         }
-        self.logger.debug('InfluxDB query: url=>%s params=>%s', endpoint_url, params)
-        response = requests.get(endpoint_url, params=params, timeout=5)
-        self.logger.debug('Query TIME TAKEN: %s', time.time() - start_time)
-        self.logger.debug("Result type:\n%s", len(response.json()['results'][0]['series'][0]['values']))
-        for each in response.json()['results'][0]['series'][0]['values']:
-            self.logger.debug("Result data:\n%s", pprint.pformat(each[0]))
+        self.logger.debug('InfluxDB查询信息: URL=>%s 查询参数=>%s', self.endpoint_url, query_params)
+        r = requests.get(self.endpoint_url, params=query_params, timeout=5)
+        self.logger.debug('InfluxDB查询结果为%s, 所用时间为:%s，',
+                          '成功' if r.status_code == 200 else '失败',
+                          time.time() - start_time)
+        # self.logger.debug("InfluxDB查询返回数据为:\n%s",
+        #                  pprint.pformat(r.json()['results'][0]['series'][0]['values']))
+
+    def write_data_into_db(self):
+        start_time = time.time()
+        json_body = list()
+        for (k, v) in self.datadict.iteritems():
+            point_string_data = self.get_point_str_data(self.config_name,
+                                                        int(v['SHIJ']) * 1000 + k % 1000,
+                                                        v)
+            json_body.append(point_string_data)
+        client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
+        return_value = client.write_points(json_body, time_precision='ms')
+        self.logger.debug('写入InfluxDB数据库结果为%s， 花费时间为:%s',
+                          '成功' if return_value else '失败',
+                          time.time() - start_time)
+
+    def create_database(self):
+        create_db_cmd = 'CREATE DATABASE %s' % INFLUX_DB_NAME
+        create_db_params = {
+            'q': create_db_cmd
+        }
+        r = requests.get(self.endpoint_url, params=create_db_params, timeout=5)
+        self.logger.debug('创建InfluxDB数据库:%s, 结果为%s',
+                          INFLUX_DB_NAME,
+                          '成功' if r.status_code == 200 else '失败')
 
 
 def main(interval=None, name=None, border=False):
-    redis_client = None  # RedisConnection()
+    redis_client = None  # Red,isConnection()
     data_handler = DataHandler(name=name, border=border)
     data_handler.read_file(redis_client)
     data_handler.generate_dynamic_data()
+    data_handler.load_dynamic_data_into_influxdb()
     # data_handler.print_to_file()
     # data_handler.print_as_text()
     # data_handler.read_all_sum()
     # data_handler.read_interval_sum(interval)
-    data_handler.influxdb_test()
 
 
 if __name__ == '__main__':
