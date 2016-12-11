@@ -42,6 +42,7 @@ EMPTY__DATA_DICT = {
     'KKKK': 0, 'KKKD': 0, 'KKPK': 0, 'SHSP': 0, 'SHSK': 0, 'XHSP': 0, 'XHSK': 0, 'KPAN': 0, 'SPAN': 0,
     'ZUIG': list(), 'ZUID': list()
 }
+
 NON_ZERO_LIST = ['KPAN', 'SPAN', 'ZUIG', 'ZUID']
 
 handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1024 * 1024)
@@ -53,7 +54,33 @@ logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
 
-def fill_order_dict(data_dict):
+def fill_order_empty_dict(data_dict):
+    data_dict['KDKD'] = 0
+    data_dict['KDKK'] = 0
+    data_dict['KDPD'] = 0
+    data_dict['PDPD'] = 0
+    data_dict['PDPK'] = 0
+    data_dict['PDKD'] = 0
+    data_dict['KKKK'] = 0
+    data_dict['KKKD'] = 0
+    data_dict['KKPK'] = 0
+    data_dict['PKPK'] = 0
+    data_dict['PKKK'] = 0
+    data_dict['PKPD'] = 0
+    data_dict['SHSK'] = 0
+    data_dict['SHSP'] = 0
+    data_dict['XHSK'] = 0
+    data_dict['XHSP'] = 0
+    data_dict['ZUIG'] = 0
+    data_dict['ZUID'] = 0
+    data_dict['KPAN'] = 0
+    data_dict['SPAN'] = 0
+    data_dict['ZUIG'] = list()
+    data_dict['ZUID'] = list()
+    return data_dict
+
+
+def fill_order_list_dict(data_dict):
     data_dict['KDKD'] = list()
     data_dict['KDKK'] = list()
     data_dict['KDPD'] = list()
@@ -92,6 +119,7 @@ class DataHandler(object):
         self.logger = logger
         self.border = border
         self.datadict = OrderedDict()
+        self.static_first_record_timestamp = 0
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
         self.endpoint_url = 'http://localhost:8086/query'
@@ -100,17 +128,16 @@ class DataHandler(object):
         self.config_data = self.cfg_file[name]
         self.timestamp_list = list()
         self.all_data_dict = deepcopy(EMPTY__DATA_DICT)
-        self.non_filter_data = deepcopy(EMPTY__DATA_DICT)
-        self.big_data_dict = deepcopy(EMPTY__DATA_DICT)
-        self.middle_data_dict = deepcopy(EMPTY__DATA_DICT)
-        self.small_data_dict = deepcopy(EMPTY__DATA_DICT)
-        self.other_data_dict = deepcopy(EMPTY__DATA_DICT)
 
-        self.non_filter_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
-        self.big_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
-        self.middle_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
-        self.small_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
-        self.other_printout_dict = deepcopy(fill_order_dict(OrderedDict()))
+        self.non_filter_data = deepcopy(fill_order_empty_dict(OrderedDict()))
+        self.big_data_dict = deepcopy(fill_order_empty_dict(OrderedDict()))
+        self.small_data_dict = deepcopy(fill_order_empty_dict(OrderedDict()))
+        self.other_data_dict = deepcopy(fill_order_empty_dict(OrderedDict()))
+
+        self.non_filter_printout_dict = deepcopy(fill_order_list_dict(OrderedDict()))
+        self.big_printout_dict = deepcopy(fill_order_list_dict(OrderedDict()))
+        self.small_printout_dict = deepcopy(fill_order_list_dict(OrderedDict()))
+        self.other_printout_dict = deepcopy(fill_order_list_dict(OrderedDict()))
 
     def read_config_file(self):
         with open(CONFIG_NAME) as cfg_file:
@@ -122,7 +149,7 @@ class DataHandler(object):
         print(u'配置文件内容为：\n%s' % cfg_print_tbl)
         return file_data
 
-    def read_file(self, redis_client):
+    def read_file(self):
         start_time = time.time()
         index = 0
         with open('%s' % self.cfg_file[self.config_name]['filename'], 'r') as data_file:
@@ -166,7 +193,6 @@ class DataHandler(object):
                         'ZUIG': 0,  # 最高价
                         'ZUID': 0.  # 最低价
                     }
-                    # redis_client.write_data(str(index), json.dumps(data_dict, ensure_ascii=False))
                 else:
                     break
                 index += 1
@@ -179,8 +205,9 @@ class DataHandler(object):
         reversed_keys.reverse()
         earliest_record_index_number = len(reversed_keys) - 1  # 最早的那条记录的索引值
         # 设置最早和最晚的时间戳
-        self.first_record_timestamp = self.datadict[earliest_record_index_number]['SHIJ']
-        self.last_record_timestamp = self.datadict[0]['SHIJ']
+        self.static_first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
+        self.first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
+        self.last_record_timestamp = deepcopy(self.datadict[0]['SHIJ'])
         # 确定第一个交易位置值
         for each in reversed_keys:
             if each < earliest_record_index_number:
@@ -297,31 +324,30 @@ class DataHandler(object):
                  self.cfg_file[self.config_name]['filename'],
                  interval, number_of_interval))
 
-        self.non_filter_data = EMPTY__DATA_DICT
-        for each_loop in range(1, number_of_interval):
+        self.non_filter_data = deepcopy(EMPTY__DATA_DICT)
+        for each_loop in range(0, number_of_interval):
             reset_dict(self.non_filter_data)
             reset_dict(self.big_data_dict)
-            reset_dict(self.middle_data_dict)
             reset_dict(self.small_data_dict)
             reset_dict(self.other_data_dict)
-            for each in self.datadict.values():
-                if 0 <= each['SHIJ'] - self.first_record_timestamp < FENZHONG_1 * int(interval):
+            start_time_diff = FENZHONG_1 * int(interval) * each_loop
+            end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)
+            loop_dict_values = deepcopy(self.datadict.values())
+            for each_value in loop_dict_values:
+                loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
+                if start_time_diff <= loop_time_diff < end_time_diff:
                     # 无过滤条件
-                    self.pack_data_into_dict(each, self.non_filter_data,
+                    self.pack_data_into_dict(each_value, self.non_filter_data,
                                              filter_range=(MIN, MAX))
                     # 大单
-                    self.pack_data_into_dict(each, self.big_data_dict,
+                    self.pack_data_into_dict(each_value, self.big_data_dict,
                                              filter_range=(self.cfg_file[self.config_name]['big'], MAX))
-                    # 中单
-                    self.pack_data_into_dict(each, self.middle_data_dict,
-                                             filter_range=(self.cfg_file[self.config_name]['middle'],
-                                                           self.cfg_file[self.config_name]['big']))
                     # 小单
-                    self.pack_data_into_dict(each, self.small_data_dict,
+                    self.pack_data_into_dict(each_value, self.small_data_dict,
                                              filter_range=(self.cfg_file[self.config_name]['small'],
-                                                           self.cfg_file[self.config_name]['middle']))
+                                                           self.cfg_file[self.config_name]['big']))
                     # 其他
-                    self.pack_data_into_dict(each, self.other_data_dict,
+                    self.pack_data_into_dict(each_value, self.other_data_dict,
                                              filter_range=(MIN, self.cfg_file[self.config_name]['small']))
 
             self.non_filter_data['ZUIG'] = max(self.non_filter_data['ZUIG']) if self.non_filter_data['ZUIG'] else 0
@@ -333,11 +359,6 @@ class DataHandler(object):
             self.big_data_dict['ZUID'] = min(self.big_data_dict['ZUID']) if self.big_data_dict['ZUID'] else 0
             self.big_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
             self.big_data_dict['SPAN'] = self.datadict[0]['JIAG']
-
-            self.middle_data_dict['ZUIG'] = max(self.middle_data_dict['ZUIG']) if self.middle_data_dict['ZUIG'] else 0
-            self.middle_data_dict['ZUID'] = min(self.middle_data_dict['ZUID']) if self.middle_data_dict['ZUID'] else 0
-            self.middle_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
-            self.middle_data_dict['SPAN'] = self.datadict[0]['JIAG']
 
             self.small_data_dict['ZUIG'] = max(self.small_data_dict['ZUIG']) if self.small_data_dict['ZUIG'] else 0
             self.small_data_dict['ZUID'] = min(self.small_data_dict['ZUID']) if self.small_data_dict['ZUID'] else 0
@@ -351,13 +372,11 @@ class DataHandler(object):
 
             self.cleanup_non_filter_printout_table_dict(interval, self.non_filter_printout_dict, self.non_filter_data)
             self.cleanup_filter_printout_table_dict(self.big_printout_dict, self.big_data_dict)
-            self.cleanup_filter_printout_table_dict(self.middle_printout_dict, self.middle_data_dict)
             self.cleanup_filter_printout_table_dict(self.small_printout_dict, self.small_data_dict)
             self.cleanup_filter_printout_table_dict(self.other_printout_dict, self.other_data_dict)
 
         self.print_generated_table(interval, self.non_filter_printout_dict, u'无过滤')
         self.print_generated_table(interval, self.big_printout_dict, u'大单')
-        self.print_generated_table(interval, self.middle_printout_dict, u'中单')
         self.print_generated_table(interval, self.small_printout_dict, u'小单')
         self.print_generated_table(interval, self.other_printout_dict, u'其他')
 
@@ -366,8 +385,8 @@ class DataHandler(object):
         printout_table.add_column(u'名称(' + string_name + ')', self.timestamp_list)
         for (k, v) in printout_dict.iteritems():
             printout_table.add_column(KEY_DICT[k], v)
-        self.logger.info(u'%s分钟间隔合计数据为:\n %s', interval, printout_table)
-        print(u'%s分钟间隔合计数据为:\n %s' % (interval, printout_table))
+        self.logger.info(u'%s分钟间隔\'%s\'合计数据为:\n %s', interval, string_name, printout_table)
+        print(u'%s分钟间隔\'%s\'合计数据为:\n %s' % (interval, string_name, printout_table))
 
     def cleanup_non_filter_printout_table_dict(self, interval, non_filter_printout_dict, data_dict):
         updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
@@ -404,7 +423,7 @@ class DataHandler(object):
             elif key == 'KPAN' or key == 'SPAN':
                 pass
             else:
-                if min_range < each[key] <= max_range:
+                if min_range <= each[key] < max_range:
                     data_dict[key] += each[key]
         return data_dict
 
@@ -463,15 +482,14 @@ class DataHandler(object):
 
 
 def main(interval=None, name=None, border=False):
-    redis_client = None  # Red,isConnection()
     data_handler = DataHandler(name=name, border=border)
-    data_handler.read_file(redis_client)
+    data_handler.read_file()
     data_handler.generate_dynamic_data()
     data_handler.load_dynamic_data_into_influxdb()
     # data_handler.print_to_file()
     # data_handler.print_as_text()
-    # data_handler.read_all_sum()
-    # data_handler.read_interval_sum(interval)
+    data_handler.read_all_sum()
+    data_handler.read_interval_sum(interval)
 
 
 if __name__ == '__main__':
