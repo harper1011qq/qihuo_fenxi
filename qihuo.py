@@ -358,23 +358,27 @@ class DataHandler(object):
 
             self.non_filter_data['ZUIG'] = max(self.non_filter_data['ZUIG']) if self.non_filter_data['ZUIG'] else 0
             self.non_filter_data['ZUID'] = min(self.non_filter_data['ZUID']) if self.non_filter_data['ZUID'] else 0
-            self.non_filter_data['KPAN'] = self.non_filter_data['KPAN'][0]
-            self.non_filter_data['SPAN'] = self.non_filter_data['SPAN'][len(self.non_filter_data['SPAN']) - 1]
+            self.non_filter_data['KPAN'] = self.non_filter_data['KPAN'][0] if self.non_filter_data['KPAN'] else 0
+            self.non_filter_data['SPAN'] = self.non_filter_data['SPAN'][len(self.non_filter_data['SPAN']) - 1] if \
+            self.non_filter_data['SPAN'] else 0
 
             self.big_data_dict['ZUIG'] = max(self.big_data_dict['ZUIG']) if self.big_data_dict['ZUIG'] else 0
             self.big_data_dict['ZUID'] = min(self.big_data_dict['ZUID']) if self.big_data_dict['ZUID'] else 0
-            self.big_data_dict['KPAN'] = self.big_data_dict['KPAN'][0]
-            self.big_data_dict['SPAN'] = self.big_data_dict['SPAN'][len(self.big_data_dict['SPAN']) - 1]
+            self.big_data_dict['KPAN'] = self.big_data_dict['KPAN'][0] if self.big_data_dict['KPAN'] else 0
+            self.big_data_dict['SPAN'] = self.big_data_dict['SPAN'][len(self.big_data_dict['SPAN']) - 1] if \
+            self.big_data_dict['SPAN'] else 0
 
             self.small_data_dict['ZUIG'] = max(self.small_data_dict['ZUIG']) if self.small_data_dict['ZUIG'] else 0
             self.small_data_dict['ZUID'] = min(self.small_data_dict['ZUID']) if self.small_data_dict['ZUID'] else 0
-            self.small_data_dict['KPAN'] = self.small_data_dict['KPAN'][0]
-            self.small_data_dict['SPAN'] = self.small_data_dict['SPAN'][len(self.small_data_dict['SPAN']) - 1]
+            self.small_data_dict['KPAN'] = self.small_data_dict['KPAN'][0] if self.small_data_dict['KPAN'] else 0
+            self.small_data_dict['SPAN'] = self.small_data_dict['SPAN'][len(self.small_data_dict['SPAN']) - 1] if \
+            self.small_data_dict['SPAN'] else 0
 
             self.other_data_dict['ZUIG'] = max(self.other_data_dict['ZUIG']) if self.other_data_dict['ZUIG'] else 0
             self.other_data_dict['ZUID'] = min(self.other_data_dict['ZUID']) if self.other_data_dict['ZUID'] else 0
-            self.other_data_dict['KPAN'] = self.other_data_dict['KPAN'][0]
-            self.other_data_dict['SPAN'] = self.other_data_dict['SPAN'][len(self.other_data_dict['SPAN']) - 1]
+            self.other_data_dict['KPAN'] = self.other_data_dict['KPAN'][0] if self.other_data_dict['KPAN'] else 0
+            self.other_data_dict['SPAN'] = self.other_data_dict['SPAN'][len(self.other_data_dict['SPAN']) - 1] if \
+            self.other_data_dict['SPAN'] else 0
 
             self.cleanup_non_filter_printout_table_dict(interval, self.non_filter_printout_dict, self.non_filter_data)
             self.cleanup_filter_printout_table_dict(self.big_printout_dict, self.big_data_dict)
@@ -418,8 +422,8 @@ class DataHandler(object):
         # if any(validate_value_dict.values()):
         for key in EMPTY_DATA_DICT.keys():
             filter_printout_dict[key].append(data_dict[key])
-        # else:
-        #     pass
+            # else:
+            #     pass
 
     def pack_data_into_dict(self, each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
