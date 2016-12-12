@@ -204,7 +204,6 @@ class DataHandler(object):
         reversed_keys.reverse()
         earliest_record_index_number = len(reversed_keys) - 1  # 最早的那条记录的索引值
         # 设置最早和最晚的时间戳
-        self.static_first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.last_record_timestamp = deepcopy(self.datadict[0]['SHIJ'])
         # 确定第一个交易位置值
@@ -213,10 +212,14 @@ class DataHandler(object):
                 if self.datadict[each]['JIAG'] > self.datadict[earliest_record_index_number]['JIAG']:
                     # 如果下一条记录的价格比最开始的那条记录的价格大的话. 最开始的那条记录赋值为-1
                     self.datadict[earliest_record_index_number]['WEIZ'] = -1
+                    self.generate_each_dynamic_data(self.datadict[earliest_record_index_number]['WEIZ'],
+                                                    earliest_record_index_number)
                     break
                 elif self.datadict[each]['JIAG'] < self.datadict[earliest_record_index_number]['JIAG']:
                     # 如果下一条记录的价格比最开始的那条记录的价格小的话. 最开始的那条记录赋值为1
                     self.datadict[earliest_record_index_number]['WEIZ'] = 1
+                    self.generate_each_dynamic_data(self.datadict[earliest_record_index_number]['WEIZ'],
+                                                    earliest_record_index_number)
                     break
                 else:
                     # 如果下一条记录的价格跟最开始的那条记录的价格一样的话. 忽略，进行下一条记录的比较
@@ -235,42 +238,44 @@ class DataHandler(object):
                 else:
                     WEIZ = self.datadict[each + 1]['WEIZ']
                 self.datadict[each]['WEIZ'] = WEIZ
-
-                if WEIZ == 1:
-                    if self.datadict[each]['KAIC'] < self.datadict[each]['PINGC']:
-                        # 开仓小于平仓
-                        self.datadict[each]['PKPK'] = self.datadict[each]['CJL'] / 2
-                        self.datadict[each]['PKKK'] = self.datadict[each]['KAIC']
-                        self.datadict[each]['PKPD'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['KAIC']
-                    elif self.datadict[each]['KAIC'] > self.datadict[each]['PINGC']:
-                        # 开仓大于平仓
-                        self.datadict[each]['KDKD'] = self.datadict[each]['CJL'] / 2
-                        self.datadict[each]['KDKK'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['PINGC']
-                        self.datadict[each]['KDPD'] = self.datadict[each]['PINGC']
-                    else:
-                        # 开仓等于平仓
-                        self.datadict[each]['SHSP'] = self.datadict[each]['KAIC']
-                        self.datadict[each]['SHSK'] = self.datadict[each]['PINGC']
-                elif WEIZ == -1:
-                    if self.datadict[each]['KAIC'] < self.datadict[each]['PINGC']:
-                        # 开仓小于平仓
-                        self.datadict[each]['PDPD'] = self.datadict[each]['CJL'] / 2
-                        self.datadict[each]['PDKD'] = self.datadict[each]['KAIC']
-                        self.datadict[each]['PDPK'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['KAIC']
-                    elif self.datadict[each]['KAIC'] > self.datadict[each]['PINGC']:
-                        # 开仓大于平仓
-                        self.datadict[each]['KKKK'] = self.datadict[each]['CJL'] / 2
-                        self.datadict[each]['KKKD'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['PINGC']
-                        self.datadict[each]['KKPK'] = self.datadict[each]['PINGC']
-                    else:
-                        # 开仓等于平仓
-                        self.datadict[each]['XHSP'] = self.datadict[each]['PINGC']
-                        self.datadict[each]['XHSK'] = self.datadict[each]['KAIC']
-                else:
-                    self.logger.error(u'有问题， 交易位置非1 或 -1')
+                self.generate_each_dynamic_data(WEIZ, each)
 
         self.logger.debug(u'计算其他动态值所花费时间为：%s', time.time() - start_time)
         # print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
+
+    def generate_each_dynamic_data(self, weizhi, each):
+        if weizhi == 1:
+            if self.datadict[each]['KAIC'] < self.datadict[each]['PINGC']:
+                # 开仓小于平仓
+                self.datadict[each]['PKPK'] = self.datadict[each]['CJL'] / 2
+                self.datadict[each]['PKKK'] = self.datadict[each]['KAIC']
+                self.datadict[each]['PKPD'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['KAIC']
+            elif self.datadict[each]['KAIC'] > self.datadict[each]['PINGC']:
+                # 开仓大于平仓
+                self.datadict[each]['KDKD'] = self.datadict[each]['CJL'] / 2
+                self.datadict[each]['KDKK'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['PINGC']
+                self.datadict[each]['KDPD'] = self.datadict[each]['PINGC']
+            else:
+                # 开仓等于平仓
+                self.datadict[each]['SHSP'] = self.datadict[each]['KAIC']
+                self.datadict[each]['SHSK'] = self.datadict[each]['PINGC']
+        elif weizhi == -1:
+            if self.datadict[each]['KAIC'] < self.datadict[each]['PINGC']:
+                # 开仓小于平仓
+                self.datadict[each]['PDPD'] = self.datadict[each]['CJL'] / 2
+                self.datadict[each]['PDKD'] = self.datadict[each]['KAIC']
+                self.datadict[each]['PDPK'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['KAIC']
+            elif self.datadict[each]['KAIC'] > self.datadict[each]['PINGC']:
+                # 开仓大于平仓
+                self.datadict[each]['KKKK'] = self.datadict[each]['CJL'] / 2
+                self.datadict[each]['KKKD'] = self.datadict[each]['CJL'] / 2 - self.datadict[each]['PINGC']
+                self.datadict[each]['KKPK'] = self.datadict[each]['PINGC']
+            else:
+                # 开仓等于平仓
+                self.datadict[each]['XHSP'] = self.datadict[each]['PINGC']
+                self.datadict[each]['XHSK'] = self.datadict[each]['KAIC']
+        else:
+            self.logger.error(u'有问题， 交易位置非1 或 -1')
 
     def print_to_file(self):
         self.logger.info(u'所有原始数据为:\n%s', pprint.pformat(dict(self.datadict)))
@@ -479,9 +484,9 @@ def main(interval=None, name=None, border=False):
     data_handler = DataHandler(name=name, border=border)
     data_handler.read_file()
     data_handler.generate_dynamic_data()
-    data_handler.load_dynamic_data_into_influxdb()
-    # data_handler.print_to_file()
-    # data_handler.print_as_text()
+    # data_handler.load_dynamic_data_into_influxdb()
+    data_handler.print_to_file()
+    data_handler.print_as_text()
     data_handler.read_all_sum()
     data_handler.read_interval_sum(interval)
 
