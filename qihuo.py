@@ -37,10 +37,10 @@ KEY_DICT = {
     'SHSK': u'上换手开', 'WEIZ': u'交易位置', 'XHSP': u'下换手平', 'XHSK': u'下换手开', 'ZUIG': u'最高价',
     'ZUID': u'最低价', 'KPAN': u'开盘价', 'SPAN': u'收盘价'
 }
-EMPTY__DATA_DICT = {
-    'KDKD': 0, 'KDKK': 0, 'KDPD': 0, 'PKPK': 0, 'PKKK': 0, 'PKPD': 0, 'PDPD': 0, 'PDKD': 0, 'PDPK': 0,
-    'KKKK': 0, 'KKKD': 0, 'KKPK': 0, 'SHSP': 0, 'SHSK': 0, 'XHSP': 0, 'XHSK': 0, 'KPAN': 0, 'SPAN': 0,
-    'ZUIG': list(), 'ZUID': list()
+EMPTY_DATA_DICT = {
+    'KDKD': 0, 'KDKK': 0, 'KDPD': 0, 'PKPK': 0, 'PKKK': 0, 'PKPD': 0, 'PDPD': 0, 'PDKD': 0,
+    'PDPK': 0, 'KKKK': 0, 'KKKD': 0, 'KKPK': 0, 'SHSP': 0, 'SHSK': 0, 'XHSP': 0, 'XHSK': 0,
+    'KPAN': list(), 'SPAN': list(), 'ZUIG': list(), 'ZUID': list()
 }
 
 NON_ZERO_LIST = ['KPAN', 'SPAN', 'ZUIG', 'ZUID']
@@ -73,8 +73,8 @@ def fill_order_empty_dict(data_dict):
     data_dict['XHSP'] = 0
     data_dict['ZUIG'] = 0
     data_dict['ZUID'] = 0
-    data_dict['KPAN'] = 0
-    data_dict['SPAN'] = 0
+    data_dict['KPAN'] = list()
+    data_dict['SPAN'] = list()
     data_dict['ZUIG'] = list()
     data_dict['ZUID'] = list()
     return data_dict
@@ -108,7 +108,7 @@ def fill_order_list_dict(data_dict):
 
 def reset_dict(dict_data):
     for (k, v) in dict_data.iteritems():
-        if k == 'ZUIG' or k == 'ZUID':
+        if k == 'ZUIG' or k == 'ZUID' or k == 'KPAN' or k == 'SPAN':
             dict_data[k] = list()
         else:
             dict_data[k] = 0
@@ -119,7 +119,6 @@ class DataHandler(object):
         self.logger = logger
         self.border = border
         self.datadict = OrderedDict()
-        self.static_first_record_timestamp = 0
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
         self.endpoint_url = 'http://localhost:8086/query'
@@ -127,7 +126,7 @@ class DataHandler(object):
         self.cfg_file = self.read_config_file()
         self.config_data = self.cfg_file[name]
         self.timestamp_list = list()
-        self.all_data_dict = deepcopy(EMPTY__DATA_DICT)
+        self.all_data_dict = deepcopy(EMPTY_DATA_DICT)
 
         self.non_filter_data = deepcopy(fill_order_empty_dict(OrderedDict()))
         self.big_data_dict = deepcopy(fill_order_empty_dict(OrderedDict()))
@@ -324,18 +323,15 @@ class DataHandler(object):
                  self.cfg_file[self.config_name]['filename'],
                  interval, number_of_interval))
 
-        self.non_filter_data = deepcopy(EMPTY__DATA_DICT)
         for each_loop in range(0, number_of_interval):
             reset_dict(self.non_filter_data)
             reset_dict(self.big_data_dict)
             reset_dict(self.small_data_dict)
             reset_dict(self.other_data_dict)
-            start_time_diff = FENZHONG_1 * int(interval) * each_loop
-            end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)
+            time_increase = FENZHONG_1 * int(interval) * (each_loop + 1)
             loop_dict_values = deepcopy(self.datadict.values())
             for each_value in loop_dict_values:
-                loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
-                if start_time_diff <= loop_time_diff < end_time_diff:
+                if self.first_record_timestamp <= each_value['SHIJ'] < self.first_record_timestamp + time_increase:
                     # 无过滤条件
                     self.pack_data_into_dict(each_value, self.non_filter_data,
                                              filter_range=(MIN, MAX))
@@ -352,23 +348,23 @@ class DataHandler(object):
 
             self.non_filter_data['ZUIG'] = max(self.non_filter_data['ZUIG']) if self.non_filter_data['ZUIG'] else 0
             self.non_filter_data['ZUID'] = min(self.non_filter_data['ZUID']) if self.non_filter_data['ZUID'] else 0
-            self.non_filter_data['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
-            self.non_filter_data['SPAN'] = self.datadict[0]['JIAG']
+            self.non_filter_data['KPAN'] = self.non_filter_data['KPAN'][0]
+            self.non_filter_data['SPAN'] = self.non_filter_data['SPAN'][len(self.non_filter_data['SPAN']) - 1]
 
             self.big_data_dict['ZUIG'] = max(self.big_data_dict['ZUIG']) if self.big_data_dict['ZUIG'] else 0
             self.big_data_dict['ZUID'] = min(self.big_data_dict['ZUID']) if self.big_data_dict['ZUID'] else 0
-            self.big_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
-            self.big_data_dict['SPAN'] = self.datadict[0]['JIAG']
+            self.big_data_dict['KPAN'] = self.big_data_dict['KPAN'][0]
+            self.big_data_dict['SPAN'] = self.big_data_dict['SPAN'][len(self.big_data_dict['SPAN']) - 1]
 
             self.small_data_dict['ZUIG'] = max(self.small_data_dict['ZUIG']) if self.small_data_dict['ZUIG'] else 0
             self.small_data_dict['ZUID'] = min(self.small_data_dict['ZUID']) if self.small_data_dict['ZUID'] else 0
-            self.small_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
-            self.small_data_dict['SPAN'] = self.datadict[0]['JIAG']
+            self.small_data_dict['KPAN'] = self.small_data_dict['KPAN'][0]
+            self.small_data_dict['SPAN'] = self.small_data_dict['SPAN'][len(self.small_data_dict['SPAN']) - 1]
 
             self.other_data_dict['ZUIG'] = max(self.other_data_dict['ZUIG']) if self.other_data_dict['ZUIG'] else 0
             self.other_data_dict['ZUID'] = min(self.other_data_dict['ZUID']) if self.other_data_dict['ZUID'] else 0
-            self.other_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
-            self.other_data_dict['SPAN'] = self.datadict[0]['JIAG']
+            self.other_data_dict['KPAN'] = self.other_data_dict['KPAN'][0]
+            self.other_data_dict['SPAN'] = self.other_data_dict['SPAN'][len(self.other_data_dict['SPAN']) - 1]
 
             self.cleanup_non_filter_printout_table_dict(interval, self.non_filter_printout_dict, self.non_filter_data)
             self.cleanup_filter_printout_table_dict(self.big_printout_dict, self.big_data_dict)
@@ -398,7 +394,7 @@ class DataHandler(object):
         start_time = time.strftime('%H:%M', time.localtime(self.first_record_timestamp))
         end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
         self.timestamp_list.append(u'%s-%s' % (start_time, end_time))
-        for key in EMPTY__DATA_DICT.keys():
+        for key in EMPTY_DATA_DICT.keys():
             non_filter_printout_dict[key].append(data_dict[key])
         else:
             pass
@@ -410,18 +406,16 @@ class DataHandler(object):
         for key in NON_ZERO_LIST:
             validate_value_dict.pop(key)
         # if any(validate_value_dict.values()):
-        for key in EMPTY__DATA_DICT.keys():
+        for key in EMPTY_DATA_DICT.keys():
             filter_printout_dict[key].append(data_dict[key])
         else:
             pass
 
     def pack_data_into_dict(self, each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
-        for key in EMPTY__DATA_DICT.keys():
-            if key == 'ZUIG' or key == 'ZUID':
+        for key in EMPTY_DATA_DICT.keys():
+            if key == 'ZUIG' or key == 'ZUID' or key == 'KPAN' or key == 'SPAN':
                 data_dict[key].append(each['JIAG'])
-            elif key == 'KPAN' or key == 'SPAN':
-                pass
             else:
                 if min_range <= each[key] < max_range:
                     data_dict[key] += each[key]
