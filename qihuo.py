@@ -119,6 +119,7 @@ class DataHandler(object):
         self.logger = logger
         self.border = border
         self.datadict = OrderedDict()
+        self.static_first_record_timestamp = 0
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
         self.endpoint_url = 'http://localhost:8086/query'
@@ -204,6 +205,7 @@ class DataHandler(object):
         reversed_keys.reverse()
         earliest_record_index_number = len(reversed_keys) - 1  # 最早的那条记录的索引值
         # 设置最早和最晚的时间戳
+        self.static_first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.last_record_timestamp = deepcopy(self.datadict[0]['SHIJ'])
         # 确定第一个交易位置值
@@ -333,10 +335,13 @@ class DataHandler(object):
             reset_dict(self.big_data_dict)
             reset_dict(self.small_data_dict)
             reset_dict(self.other_data_dict)
-            time_increase = FENZHONG_1 * int(interval) * (each_loop + 1)
+            start_time_diff = FENZHONG_1 * int(interval) * each_loop
+            end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)
             loop_dict_values = deepcopy(self.datadict.values())
+            loop_dict_values.reverse()
             for each_value in loop_dict_values:
-                if self.first_record_timestamp <= each_value['SHIJ'] < self.first_record_timestamp + time_increase:
+                loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
+                if start_time_diff <= loop_time_diff < end_time_diff:
                     # 无过滤条件
                     self.pack_data_into_dict(each_value, self.non_filter_data,
                                              filter_range=(MIN, MAX))
@@ -406,15 +411,15 @@ class DataHandler(object):
         self.first_record_timestamp = updated_record_timestamp
 
     def cleanup_filter_printout_table_dict(self, filter_printout_dict, data_dict):
-        validate_value_dict = deepcopy(data_dict)
-        # 删除永远不为零的4个元素
-        for key in NON_ZERO_LIST:
-            validate_value_dict.pop(key)
+        # validate_value_dict = deepcopy(data_dict)
+        # # 删除永远不为零的4个元素
+        # for key in NON_ZERO_LIST:
+        #     validate_value_dict.pop(key)
         # if any(validate_value_dict.values()):
         for key in EMPTY_DATA_DICT.keys():
             filter_printout_dict[key].append(data_dict[key])
-        else:
-            pass
+        # else:
+        #     pass
 
     def pack_data_into_dict(self, each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
@@ -485,7 +490,7 @@ def main(interval=None, name=None, border=False):
     data_handler.read_file()
     data_handler.generate_dynamic_data()
     # data_handler.load_dynamic_data_into_influxdb()
-    data_handler.print_to_file()
+    # data_handler.print_to_file()
     data_handler.print_as_text()
     data_handler.read_all_sum()
     data_handler.read_interval_sum(interval)
