@@ -14,7 +14,8 @@ from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
 from qihuo_fenxi.constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler
+    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_ALL_DETAIL_EXCEL
+from qihuo_fenxi.excel_writer import ExcelTableWriter
 
 
 def fill_order_org_empty_dict(data_dict):
@@ -267,6 +268,8 @@ class DataHandler(object):
 
     def print_to_file(self):
         self.log_logger.info(u'所有原始数据为:\n%s', pprint.pformat(dict(self.datadict)))
+        table_writer = ExcelTableWriter(ORG_ALL_DETAIL_EXCEL, ORG_ALL_DETAIL_EXCEL.split('.')[0], self.datadict.values()[0].keys(), self.datadict)
+        table_writer.create_excel_file()
 
     def print_as_text(self):
         reversed_keys = deepcopy(self.datadict.keys())
@@ -305,7 +308,7 @@ class DataHandler(object):
         all_sum_table.align = 'l'
         for (k, v) in self.all_data_dict.iteritems():
             all_sum_table.add_column(ALL_KEY_CHN_TITLE_DICT[k], [v])
-        self.org_data_logger.info(u'\"%s\"的汇总数据为:(数据源:%s)\n %s',
+        self.hdl_data_logger.info(u'\"%s\"的汇总数据为:(数据源:%s)\n %s',
                                   self.cfg_file[self.config_name]['chinese'],
                                   self.cfg_file[self.config_name]['filename'],
                                   all_sum_table)
@@ -313,7 +316,8 @@ class DataHandler(object):
               (self.cfg_file[self.config_name]['chinese'],
                self.cfg_file[self.config_name]['filename'],
                all_sum_table))
-        self.org_data_logger.info(u'Excel形式的输出数据为:\n%s\n%s',
+
+        self.hdl_data_logger.info(u'Excel形式的输出数据为:\n%s\n%s',
                                   '\t'.join([ALL_KEY_CHN_TITLE_DICT[x] for x in self.all_data_dict.keys()]),
                                   '\t'.join([str(x) for x in self.all_data_dict.values()]))
         print(u'Excel形式的输出数据为:\n%s\n%s' %
@@ -387,10 +391,10 @@ class DataHandler(object):
             # ---------------------------------------------- 原始数据处理完毕 ----------------------------------------------
 
             # ---------------------------------------------- 处理后数据处理开始 ----------------------------------------------
-            nofilter_duo = self.nofilter_org_dict['KDKD'] + self.nofilter_org_dict['SHSK'] + self.nofilter_org_dict['PKPK']
-            nofilter_kong = self.nofilter_org_dict['KKKK'] + self.nofilter_org_dict['XHSK'] + self.nofilter_org_dict['PDPD']
-            nofilter_duo_kong_bi = (nofilter_duo / nofilter_kong) if nofilter_kong != 0 else 0
-            self.non_filter_hdl_printout_dict['DKB'].append(nofilter_duo_kong_bi)
+            non_filter_duo = self.nofilter_org_dict['KDKD'] + self.nofilter_org_dict['SHSK'] + self.nofilter_org_dict['PKPK']
+            non_filter_kong = self.nofilter_org_dict['KKKK'] + self.nofilter_org_dict['XHSK'] + self.nofilter_org_dict['PDPD']
+            non_filter_duo_kong_bi = (non_filter_duo / non_filter_kong) if non_filter_kong != 0 else 0
+            self.non_filter_hdl_printout_dict['DKB'].append(non_filter_duo_kong_bi)
 
             big_duo = self.big_org_dict['KDKD'] + self.big_org_dict['SHSK'] + self.big_org_dict['PKPK']
             big_kong = self.big_org_dict['KKKK'] + self.big_org_dict['XHSK'] + self.big_org_dict['PDPD']
@@ -406,12 +410,12 @@ class DataHandler(object):
             other_kong = self.other_org_dict['KKKK'] + self.other_org_dict['XHSK'] + self.other_org_dict['PDPD']
             other_duo_kong_bi = (other_duo / other_kong) if other_kong != 0 else 0
             self.other_hdl_printout_dict['DKB'].append(other_duo_kong_bi)
-
+        # 打印原始数据表格
         self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.org_data_logger)
         self.print_generated_table(interval, self.big_org_printout_dict, u'大单', self.org_data_logger)
         self.print_generated_table(interval, self.small_org_printout_dict, u'小单', self.org_data_logger)
         self.print_generated_table(interval, self.other_org_printout_dict, u'其他', self.org_data_logger)
-
+        # 打印处理过的数据表格
         self.print_generated_table(interval, self.non_filter_hdl_printout_dict, u'无过滤', self.hdl_data_logger)
         self.print_generated_table(interval, self.big_hdl_printout_dict, u'大单', self.hdl_data_logger)
         self.print_generated_table(interval, self.small_hdl_printout_dict, u'小单', self.hdl_data_logger)
@@ -441,7 +445,8 @@ class DataHandler(object):
         for key in ORG_EMPTY_DATA_DICT.keys():
             filter_printout_dict[key].append(data_dict[key])
 
-    def pack_data_into_dict(self, each, data_dict, filter_range=None):
+    @staticmethod
+    def pack_data_into_dict(each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
         for key in ORG_EMPTY_DATA_DICT.keys():
             if key == 'ZUIG' or key == 'ZUID' or key == 'KPAN' or key == 'SPAN':
@@ -482,9 +487,7 @@ class DataHandler(object):
         start_time = time.time()
         json_body = list()
         for (k, v) in self.datadict.iteritems():
-            point_string_data = self.get_point_str_data(self.config_name,
-                                                        int(v['SHIJ']) * 1000 + k % 1000,
-                                                        v)
+            point_string_data = self.get_point_str_data(self.config_name, int(v['SHIJ']) * 1000 + k % 1000, v)
             json_body.append(point_string_data)
         client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
         return_value = client.write_points(json_body, time_precision='ms')
@@ -504,7 +507,7 @@ def main(interval=None, name=None, border=False):
     data_handler.read_file()
     data_handler.generate_dynamic_data()
     # data_handler.load_dynamic_data_into_influxdb()
-    # data_handler.print_to_file()
+    data_handler.print_to_file()
     # data_handler.print_as_text()
     data_handler.print_all_sum()
     data_handler.print_interval_sum_tbls(interval)
@@ -517,4 +520,4 @@ if __name__ == '__main__':
     parser.add_argument('--border', default=False, action='store_true', help=u'是否显示表格边框，默认为不显示。')
     args = parser.parse_args()
 
-    main(interval=int(args.interval), name=args.name, border=args.border)
+    main(interval=int(args.interval), name=args.name, border=True)

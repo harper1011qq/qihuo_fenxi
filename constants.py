@@ -5,9 +5,17 @@ import logging.handlers
 
 import sys
 
-LOG_FILE = 'qihuo.log'
+LOG_FILE = u'日志文件.log'
 ORG_LOG_FILE = u'原始.log'
 HDL_LOG_FILE = u'处理.log'
+
+ORG_ALL_DETAIL_EXCEL = u'全部详细数据.xlsx'
+ORG_ALL_SUM_EXCEL = u'全部汇总数据.xlsx'
+ORG_INTERVAL_ALL_EXCEL = u'分段全体数据.xlsx'
+ORG_INTERVAL_BIG_EXCEL = u'分段大单数据.xlsx'
+ORG_INTERVAL_SMALL_EXCEL = u'分段中单数据.xlsx'
+ORG_INTERVAL_OTHER_EXCEL = u'分段小单数据.xlsx'
+
 FILE_NAME = 'baicha1.txt'
 CONFIG_NAME = 'config.json'
 TEXT_EXCEL_FILE_NAME = 'temp.file.txt'
