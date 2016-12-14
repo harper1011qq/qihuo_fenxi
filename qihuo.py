@@ -14,8 +14,8 @@ from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
 from qihuo_fenxi.constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_ALL_DETAIL_EXCEL
-from qihuo_fenxi.excel_writer import ExcelTableWriter
+    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler
+from qihuo_fenxi.excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter
 
 
 def fill_order_org_empty_dict(data_dict):
@@ -268,8 +268,7 @@ class DataHandler(object):
 
     def print_to_file(self):
         self.log_logger.info(u'所有原始数据为:\n%s', pprint.pformat(dict(self.datadict)))
-        table_writer = ExcelTableWriter(ORG_ALL_DETAIL_EXCEL, ORG_ALL_DETAIL_EXCEL.split('.')[0], self.datadict.values()[0].keys(), self.datadict)
-        table_writer.create_excel_file()
+        AllDetailExcelTableWriter(self.datadict.values()[0].keys(), self.datadict)
 
     def print_as_text(self):
         reversed_keys = deepcopy(self.datadict.keys())
@@ -317,12 +316,7 @@ class DataHandler(object):
                self.cfg_file[self.config_name]['filename'],
                all_sum_table))
 
-        self.hdl_data_logger.info(u'Excel形式的输出数据为:\n%s\n%s',
-                                  '\t'.join([ALL_KEY_CHN_TITLE_DICT[x] for x in self.all_data_dict.keys()]),
-                                  '\t'.join([str(x) for x in self.all_data_dict.values()]))
-        print(u'Excel形式的输出数据为:\n%s\n%s' %
-              ('\t'.join([ALL_KEY_CHN_TITLE_DICT[x] for x in self.all_data_dict.keys()]),
-               '\t'.join([str(x) for x in self.all_data_dict.values()])))
+        AllSumExceTableWriter(self.all_data_dict.keys(), self.all_data_dict)
 
     def print_interval_sum_tbls(self, interval):
         number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
@@ -420,6 +414,11 @@ class DataHandler(object):
         self.print_generated_table(interval, self.big_hdl_printout_dict, u'大单', self.hdl_data_logger)
         self.print_generated_table(interval, self.small_hdl_printout_dict, u'小单', self.hdl_data_logger)
         self.print_generated_table(interval, self.other_hdl_printout_dict, u'其他', self.hdl_data_logger)
+        # 打印到Excel文件
+        IntervalSumExceTableWriter(u'无过滤', self.non_filter_org_print_dict.keys(), self.non_filter_org_print_dict, self.date_list[0], self.time_list)
+        IntervalSumExceTableWriter(u'大单', self.non_filter_org_print_dict.keys(), self.big_org_printout_dict, self.date_list[0], self.time_list)
+        IntervalSumExceTableWriter(u'小单', self.non_filter_org_print_dict.keys(), self.small_org_printout_dict, self.date_list[0], self.time_list)
+        IntervalSumExceTableWriter(u'其他', self.non_filter_org_print_dict.keys(), self.other_org_printout_dict, self.date_list[0], self.time_list)
 
     def print_generated_table(self, interval, printout_dict, string_name, logger):
         printout_table = PrettyTable(border=self.border)
