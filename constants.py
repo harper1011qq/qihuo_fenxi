@@ -11,10 +11,8 @@ HDL_LOG_FILE = u'处理.log'
 
 ORG_ALL_DETAIL_EXCEL = u'全部详细数据.xlsx'
 ORG_ALL_SUM_EXCEL = u'全部汇总数据.xlsx'
-ORG_INTERVAL_ALL_EXCEL = u'分段全体数据.xlsx'
-ORG_INTERVAL_BIG_EXCEL = u'分段大单数据.xlsx'
-ORG_INTERVAL_SMALL_EXCEL = u'分段中单数据.xlsx'
-ORG_INTERVAL_OTHER_EXCEL = u'分段小单数据.xlsx'
+ORG_INTERVAL_DATA_EXCEL = u'分段原始数据.xlsx'
+HDL_INTERVAL_BIG_EXCEL = u'分段处理数据.xlsx'
 
 FILE_NAME = 'baicha1.txt'
 CONFIG_NAME = 'config.json'

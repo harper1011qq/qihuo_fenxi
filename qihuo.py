@@ -14,7 +14,7 @@ from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
 from qihuo_fenxi.constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler
+    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL
 from qihuo_fenxi.excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter
 
 
@@ -415,10 +415,19 @@ class DataHandler(object):
         self.print_generated_table(interval, self.small_hdl_printout_dict, u'小单', self.hdl_data_logger)
         self.print_generated_table(interval, self.other_hdl_printout_dict, u'其他', self.hdl_data_logger)
         # 打印到Excel文件
-        IntervalSumExceTableWriter(u'无过滤', self.non_filter_org_print_dict.keys(), self.non_filter_org_print_dict, self.date_list[0], self.time_list)
-        IntervalSumExceTableWriter(u'大单', self.non_filter_org_print_dict.keys(), self.big_org_printout_dict, self.date_list[0], self.time_list)
-        IntervalSumExceTableWriter(u'小单', self.non_filter_org_print_dict.keys(), self.small_org_printout_dict, self.date_list[0], self.time_list)
-        IntervalSumExceTableWriter(u'其他', self.non_filter_org_print_dict.keys(), self.other_org_printout_dict, self.date_list[0], self.time_list)
+        IntervalSumExceTableWriter(ORG_INTERVAL_DATA_EXCEL,
+                                   self.non_filter_org_print_dict,
+                                   self.big_org_printout_dict,
+                                   self.small_org_printout_dict,
+                                   self.other_org_printout_dict,
+                                   self.date_list[0], self.time_list)
+
+        IntervalSumExceTableWriter(HDL_INTERVAL_BIG_EXCEL,
+                                   self.non_filter_hdl_printout_dict,
+                                   self.big_hdl_printout_dict,
+                                   self.small_hdl_printout_dict,
+                                   self.other_hdl_printout_dict,
+                                   self.date_list[0], self.time_list)
 
     def print_generated_table(self, interval, printout_dict, string_name, logger):
         printout_table = PrettyTable(border=self.border)
@@ -506,7 +515,7 @@ def main(interval=None, name=None, border=False):
     data_handler.read_file()
     data_handler.generate_dynamic_data()
     # data_handler.load_dynamic_data_into_influxdb()
-    data_handler.print_to_file()
+    # data_handler.print_to_file()
     # data_handler.print_as_text()
     data_handler.print_all_sum()
     data_handler.print_interval_sum_tbls(interval)
