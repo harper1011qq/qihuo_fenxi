@@ -13,79 +13,10 @@ import requests
 from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
-from qihuo_fenxi.constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL
-from qihuo_fenxi.excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter
-
-
-def fill_order_org_empty_dict(data_dict):
-    data_dict['KDKD'] = 0
-    data_dict['KDKK'] = 0
-    data_dict['KDPD'] = 0
-    data_dict['PDPD'] = 0
-    data_dict['PDPK'] = 0
-    data_dict['PDKD'] = 0
-    data_dict['KKKK'] = 0
-    data_dict['KKKD'] = 0
-    data_dict['KKPK'] = 0
-    data_dict['PKPK'] = 0
-    data_dict['PKKK'] = 0
-    data_dict['PKPD'] = 0
-    data_dict['SHSK'] = 0
-    data_dict['SHSP'] = 0
-    data_dict['XHSK'] = 0
-    data_dict['XHSP'] = 0
-    data_dict['ZUIG'] = 0
-    data_dict['ZUID'] = 0
-    data_dict['KPAN'] = list()
-    data_dict['SPAN'] = list()
-    data_dict['ZUIG'] = list()
-    data_dict['ZUID'] = list()
-    return data_dict
-
-
-def fill_order_org_list_dict(data_dict):
-    data_dict['KDKD'] = list()
-    data_dict['KDKK'] = list()
-    data_dict['KDPD'] = list()
-    data_dict['PDPD'] = list()
-    data_dict['PDPK'] = list()
-    data_dict['PDKD'] = list()
-    data_dict['KKKK'] = list()
-    data_dict['KKKD'] = list()
-    data_dict['KKPK'] = list()
-    data_dict['PKPK'] = list()
-    data_dict['PKKK'] = list()
-    data_dict['PKPD'] = list()
-    data_dict['SHSK'] = list()
-    data_dict['SHSP'] = list()
-    data_dict['XHSK'] = list()
-    data_dict['XHSP'] = list()
-    data_dict['ZUIG'] = list()
-    data_dict['ZUID'] = list()
-    data_dict['KPAN'] = list()
-    data_dict['SPAN'] = list()
-    data_dict['ZUIG'] = list()
-    data_dict['ZUID'] = list()
-    return data_dict
-
-
-def fill_order_hdl_empty_dict(data_dict):
-    data_dict['DKB'] = 0
-    return data_dict
-
-
-def fill_order_hdl_list_dict(data_dict):
-    data_dict['DKB'] = list()
-    return data_dict
-
-
-def reset_dict(dict_data):
-    for (k, v) in dict_data.iteritems():
-        if k == 'ZUIG' or k == 'ZUID' or k == 'KPAN' or k == 'SPAN':
-            dict_data[k] = list()
-        else:
-            dict_data[k] = 0
+from constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
+    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
+    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time
+from excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter
 
 
 class DataHandler(object):
@@ -344,7 +275,7 @@ class DataHandler(object):
             loop_dict_values.reverse()
             for each_value in loop_dict_values:
                 loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
-                if start_time_diff <= loop_time_diff < end_time_diff:
+                if start_time_diff <= loop_time_diff < end_time_diff and is_trade_time(epoch_time=each_value['SHIJ']):
                     # 无过滤条件
                     self.pack_data_into_dict(each_value, self.nofilter_org_dict, filter_range=(MIN, MAX))
                     # 大单
@@ -388,22 +319,27 @@ class DataHandler(object):
             non_filter_duo = self.nofilter_org_dict['KDKD'] + self.nofilter_org_dict['SHSK'] + self.nofilter_org_dict['PKPK']
             non_filter_kong = self.nofilter_org_dict['KKKK'] + self.nofilter_org_dict['XHSK'] + self.nofilter_org_dict['PDPD']
             non_filter_duo_kong_bi = (non_filter_duo / non_filter_kong) if non_filter_kong != 0 else 0
-            self.non_filter_hdl_printout_dict['DKB'].append(non_filter_duo_kong_bi)
+            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+                self.non_filter_hdl_printout_dict['DKB'].append(non_filter_duo_kong_bi)
 
             big_duo = self.big_org_dict['KDKD'] + self.big_org_dict['SHSK'] + self.big_org_dict['PKPK']
             big_kong = self.big_org_dict['KKKK'] + self.big_org_dict['XHSK'] + self.big_org_dict['PDPD']
             big_duo_kong_bi = (big_duo / big_kong) if big_kong != 0 else 0
-            self.big_hdl_printout_dict['DKB'].append(big_duo_kong_bi)
+            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+                self.big_hdl_printout_dict['DKB'].append(big_duo_kong_bi)
 
             small_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
             small_kong = self.small_org_dict['KKKK'] + self.small_org_dict['XHSK'] + self.small_org_dict['PDPD']
             small_duo_kong_bi = (small_duo / small_kong) if small_kong != 0 else 0
-            self.small_hdl_printout_dict['DKB'].append(small_duo_kong_bi)
+            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+                self.small_hdl_printout_dict['DKB'].append(small_duo_kong_bi)
 
             other_duo = self.other_org_dict['KDKD'] + self.other_org_dict['SHSK'] + self.other_org_dict['PKPK']
             other_kong = self.other_org_dict['KKKK'] + self.other_org_dict['XHSK'] + self.other_org_dict['PDPD']
             other_duo_kong_bi = (other_duo / other_kong) if other_kong != 0 else 0
-            self.other_hdl_printout_dict['DKB'].append(other_duo_kong_bi)
+            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+                self.other_hdl_printout_dict['DKB'].append(other_duo_kong_bi)
+
         # 打印原始数据表格
         self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.org_data_logger)
         self.print_generated_table(interval, self.big_org_printout_dict, u'大单', self.org_data_logger)
@@ -420,14 +356,14 @@ class DataHandler(object):
                                    self.big_org_printout_dict,
                                    self.small_org_printout_dict,
                                    self.other_org_printout_dict,
-                                   self.date_list[0], self.time_list)
+                                   self.date_list, self.time_list)
 
         IntervalSumExceTableWriter(HDL_INTERVAL_BIG_EXCEL,
                                    self.non_filter_hdl_printout_dict,
                                    self.big_hdl_printout_dict,
                                    self.small_hdl_printout_dict,
                                    self.other_hdl_printout_dict,
-                                   self.date_list[0], self.time_list)
+                                   self.date_list, self.time_list)
 
     def print_generated_table(self, interval, printout_dict, string_name, logger):
         printout_table = PrettyTable(border=self.border)
@@ -442,16 +378,17 @@ class DataHandler(object):
         updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
         date_string = time.strftime('%Y-%m-%d', time.localtime(self.first_record_timestamp))
         end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
-        self.date_list.append(u'%s' % date_string)
-        self.time_list.append(u'%s' % end_time)
-        for key in ORG_EMPTY_DATA_DICT.keys():
-            non_filter_printout_dict[key].append(data_dict[key])
+        if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(updated_record_timestamp))):
+            self.date_list.append(u'%s' % date_string)
+            self.time_list.append(u'%s' % end_time)
+            for key in ORG_EMPTY_DATA_DICT.keys():
+                non_filter_printout_dict[key].append(data_dict[key])
         self.first_record_timestamp = updated_record_timestamp
 
-    @staticmethod
-    def org_filter_printout_table_dict(filter_printout_dict, data_dict):
-        for key in ORG_EMPTY_DATA_DICT.keys():
-            filter_printout_dict[key].append(data_dict[key])
+    def org_filter_printout_table_dict(self, filter_printout_dict, data_dict):
+        if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            for key in ORG_EMPTY_DATA_DICT.keys():
+                filter_printout_dict[key].append(data_dict[key])
 
     @staticmethod
     def pack_data_into_dict(each, data_dict, filter_range=None):
@@ -515,7 +452,7 @@ def main(interval=None, name=None, border=False):
     data_handler.read_file()
     data_handler.generate_dynamic_data()
     # data_handler.load_dynamic_data_into_influxdb()
-    # data_handler.print_to_file()
+    data_handler.print_to_file()
     # data_handler.print_as_text()
     data_handler.print_all_sum()
     data_handler.print_interval_sum_tbls(interval)

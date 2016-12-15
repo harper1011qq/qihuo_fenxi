@@ -5,6 +5,8 @@ import logging.handlers
 
 import sys
 
+import time
+
 LOG_FILE = u'日志文件.log'
 ORG_LOG_FILE = u'原始.log'
 HDL_LOG_FILE = u'处理.log'
@@ -90,3 +92,92 @@ def get_hdl_data_handler():
     logger.addHandler(log_handler)
     logger.setLevel(logging.DEBUG)
     return logger
+
+
+def fill_order_org_empty_dict(data_dict):
+    data_dict['KDKD'] = 0
+    data_dict['KDKK'] = 0
+    data_dict['KDPD'] = 0
+    data_dict['PDPD'] = 0
+    data_dict['PDPK'] = 0
+    data_dict['PDKD'] = 0
+    data_dict['KKKK'] = 0
+    data_dict['KKKD'] = 0
+    data_dict['KKPK'] = 0
+    data_dict['PKPK'] = 0
+    data_dict['PKKK'] = 0
+    data_dict['PKPD'] = 0
+    data_dict['SHSK'] = 0
+    data_dict['SHSP'] = 0
+    data_dict['XHSK'] = 0
+    data_dict['XHSP'] = 0
+    data_dict['ZUIG'] = 0
+    data_dict['ZUID'] = 0
+    data_dict['KPAN'] = list()
+    data_dict['SPAN'] = list()
+    data_dict['ZUIG'] = list()
+    data_dict['ZUID'] = list()
+    return data_dict
+
+
+def fill_order_org_list_dict(data_dict):
+    data_dict['KDKD'] = list()
+    data_dict['KDKK'] = list()
+    data_dict['KDPD'] = list()
+    data_dict['PDPD'] = list()
+    data_dict['PDPK'] = list()
+    data_dict['PDKD'] = list()
+    data_dict['KKKK'] = list()
+    data_dict['KKKD'] = list()
+    data_dict['KKPK'] = list()
+    data_dict['PKPK'] = list()
+    data_dict['PKKK'] = list()
+    data_dict['PKPD'] = list()
+    data_dict['SHSK'] = list()
+    data_dict['SHSP'] = list()
+    data_dict['XHSK'] = list()
+    data_dict['XHSP'] = list()
+    data_dict['ZUIG'] = list()
+    data_dict['ZUID'] = list()
+    data_dict['KPAN'] = list()
+    data_dict['SPAN'] = list()
+    data_dict['ZUIG'] = list()
+    data_dict['ZUID'] = list()
+    return data_dict
+
+
+def fill_order_hdl_empty_dict(data_dict):
+    data_dict['DKB'] = 0
+    return data_dict
+
+
+def fill_order_hdl_list_dict(data_dict):
+    data_dict['DKB'] = list()
+    return data_dict
+
+
+def reset_dict(dict_data):
+    for (k, v) in dict_data.iteritems():
+        if k == 'ZUIG' or k == 'ZUID' or k == 'KPAN' or k == 'SPAN':
+            dict_data[k] = list()
+        else:
+            dict_data[k] = 0
+
+
+def is_trade_time(epoch_time=None, string_time=None):
+    if epoch_time:
+        date_time_string = time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(epoch_time))
+    else:
+        date_time_string = string_time
+        epoch_time = time.mktime(time.strptime(date_time_string, '%Y-%m-%d,%H:%M:%S'))
+    date_string = date_time_string.split(',')[0]
+    morning_start_time = date_string + ',09:00:00'
+    morning_end_time = date_string + ',11:30:00'
+
+    afternoon_start_time = date_string + ',13:30:00'
+    afternoon_end_time = date_string + ',15:30:00'
+
+    in_morning = time.mktime(time.strptime(morning_start_time, '%Y-%m-%d,%H:%M:%S')) <= epoch_time <= time.mktime(time.strptime(morning_end_time, '%Y-%m-%d,%H:%M:%S'))
+    in_afternoon = time.mktime(time.strptime(afternoon_start_time, '%Y-%m-%d,%H:%M:%S')) <= epoch_time <= time.mktime(time.strptime(afternoon_end_time, '%Y-%m-%d,%H:%M:%S'))
+    result = in_morning or in_afternoon
+    return result

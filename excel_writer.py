@@ -3,7 +3,7 @@
 
 import xlsxwriter as xlsxwriter
 
-from qihuo_fenxi.constants import ORG_KEY_CHN_TITLE_DICT, ORG_ALL_SUM_EXCEL, ORG_ALL_DETAIL_EXCEL, ALL_KEY_CHN_TITLE_DICT
+from constants import ORG_KEY_CHN_TITLE_DICT, ORG_ALL_SUM_EXCEL, ORG_ALL_DETAIL_EXCEL, ALL_KEY_CHN_TITLE_DICT
 
 
 class ExcelTableWriter(object):
@@ -61,7 +61,7 @@ class AllSumExceTableWriter(ExcelTableWriter):
 
 
 class IntervalSumExceTableWriter(ExcelTableWriter):
-    def __init__(self, table_name, nonfilter_data_values, big_data_values, small_data_values, other_data_values, date_str, time_str_list):
+    def __init__(self, table_name, nonfilter_data_values, big_data_values, small_data_values, other_data_values, date_str_list, time_str_list):
         self.non_filter_data_values = nonfilter_data_values
         self.big_data_values = big_data_values
         self.small_data_values = small_data_values
@@ -75,16 +75,16 @@ class IntervalSumExceTableWriter(ExcelTableWriter):
         self.title_bold = self.excel_file_handler.add_format({'bold': True, 'border': 2, 'bg_color': 'green'})
         self.border = self.excel_file_handler.add_format({'border': 1})
         self.title_names = self.non_filter_data_values.keys()
-        self.create_interval_sum_excel_file(date_str, time_str_list)
+        self.create_interval_sum_excel_file(date_str_list, time_str_list)
 
-    def create_interval_sum_excel_file(self, date_str, time_str_list):
-        self.create_interval_sum_excel_sheet(self.non_filter_table_handler, self.non_filter_data_values, date_str, time_str_list)
-        self.create_interval_sum_excel_sheet(self.big_table_handler, self.big_data_values, date_str, time_str_list)
-        self.create_interval_sum_excel_sheet(self.small_table_handler, self.small_data_values, date_str, time_str_list)
-        self.create_interval_sum_excel_sheet(self.other_table_handler, self.other_data_values, date_str, time_str_list)
+    def create_interval_sum_excel_file(self, date_str_list, time_str_list):
+        self.create_interval_sum_excel_sheet(self.non_filter_table_handler, self.non_filter_data_values, date_str_list, time_str_list)
+        self.create_interval_sum_excel_sheet(self.big_table_handler, self.big_data_values, date_str_list, time_str_list)
+        self.create_interval_sum_excel_sheet(self.small_table_handler, self.small_data_values, date_str_list, time_str_list)
+        self.create_interval_sum_excel_sheet(self.other_table_handler, self.other_data_values, date_str_list, time_str_list)
         self.excel_file_handler.close()
 
-    def create_interval_sum_excel_sheet(self, sheet_handler, data_values, date_str, time_str_list):
+    def create_interval_sum_excel_sheet(self, sheet_handler, data_values, date_str_list, time_str_list):
         sheet_handler.write_string(0, 0, u'日期', self.title_bold)
         sheet_handler.write_string(0, 1, u'时间', self.title_bold)
         sheet_handler.set_column(0, 0, 10)
@@ -95,7 +95,7 @@ class IntervalSumExceTableWriter(ExcelTableWriter):
         for (key, value) in data_values.iteritems():
             row_idx = 0
             for each in value:
-                sheet_handler.write_string(row_idx + 1, 0, date_str)  # 日期
+                sheet_handler.write_string(row_idx + 1, 0, date_str_list[row_idx])  # 日期
                 sheet_handler.write_string(row_idx + 1, 1, time_str_list[row_idx])  # 时间
                 if is_digit_number(each):
                     sheet_handler.write_number(row_idx + 1, column_idx + 2, int(each))
