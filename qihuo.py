@@ -16,7 +16,7 @@ from prettytable import PrettyTable
 from constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
     INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
     fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time
-from excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter
+from excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter, IntervalHandledSumExceTableWriter
 
 
 class DataHandler(object):
@@ -37,25 +37,25 @@ class DataHandler(object):
         self.time_list = list()
         self.all_data_dict = deepcopy(ORG_EMPTY_DATA_DICT)
 
-        self.nofilter_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
+        self.non_filter_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
         self.big_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
+        self.middle_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
         self.small_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
-        self.other_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
 
         self.non_filter_org_print_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
         self.big_org_printout_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
+        self.middle_org_printout_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
         self.small_org_printout_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
-        self.other_org_printout_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
 
         self.non_filter_hdl_data = deepcopy(fill_order_hdl_empty_dict(OrderedDict()))
         self.big_data_hdl_dict = deepcopy(fill_order_hdl_empty_dict(OrderedDict()))
+        self.middle_data_hdl_dict = deepcopy(fill_order_hdl_empty_dict(OrderedDict()))
         self.small_data_hdl_dict = deepcopy(fill_order_hdl_empty_dict(OrderedDict()))
-        self.other_data_hdl_dict = deepcopy(fill_order_hdl_empty_dict(OrderedDict()))
 
         self.non_filter_hdl_printout_dict = deepcopy(fill_order_hdl_list_dict(OrderedDict()))
         self.big_hdl_printout_dict = deepcopy(fill_order_hdl_list_dict(OrderedDict()))
+        self.middle_hdl_printout_dict = deepcopy(fill_order_hdl_list_dict(OrderedDict()))
         self.small_hdl_printout_dict = deepcopy(fill_order_hdl_list_dict(OrderedDict()))
-        self.other_hdl_printout_dict = deepcopy(fill_order_hdl_list_dict(OrderedDict()))
 
     def read_config_file(self):
         with open(CONFIG_NAME) as cfg_file:
@@ -261,14 +261,14 @@ class DataHandler(object):
                  interval, number_of_interval))
 
         for each_loop in range(0, number_of_interval):
-            reset_dict(self.nofilter_org_dict)
+            reset_dict(self.non_filter_org_dict)
             reset_dict(self.big_org_dict)
+            reset_dict(self.middle_org_dict)
             reset_dict(self.small_org_dict)
-            reset_dict(self.other_org_dict)
             reset_dict(self.non_filter_hdl_data)
             reset_dict(self.big_data_hdl_dict)
+            reset_dict(self.middle_data_hdl_dict)
             reset_dict(self.small_data_hdl_dict)
-            reset_dict(self.other_data_hdl_dict)
             start_time_diff = FENZHONG_1 * int(interval) * each_loop
             end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)
             loop_dict_values = deepcopy(self.datadict.values())
@@ -277,47 +277,47 @@ class DataHandler(object):
                 loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
                 if start_time_diff <= loop_time_diff < end_time_diff and is_trade_time(epoch_time=each_value['SHIJ']):
                     # 无过滤条件
-                    self.pack_data_into_dict(each_value, self.nofilter_org_dict, filter_range=(MIN, MAX))
+                    self.pack_data_into_dict(each_value, self.non_filter_org_dict, filter_range=(MIN, MAX))
                     # 大单
                     self.pack_data_into_dict(each_value, self.big_org_dict, filter_range=(self.cfg_file[self.config_name]['big'], MAX))
                     # 小单
-                    self.pack_data_into_dict(each_value, self.small_org_dict, filter_range=(self.cfg_file[self.config_name]['small'], self.cfg_file[self.config_name]['big']))
+                    self.pack_data_into_dict(each_value, self.middle_org_dict, filter_range=(self.cfg_file[self.config_name]['small'], self.cfg_file[self.config_name]['big']))
                     # 其他
-                    self.pack_data_into_dict(each_value, self.other_org_dict, filter_range=(MIN, self.cfg_file[self.config_name]['small']))
+                    self.pack_data_into_dict(each_value, self.small_org_dict, filter_range=(MIN, self.cfg_file[self.config_name]['small']))
                 elif loop_time_diff > end_time_diff:
                     # 如果当前时间超出最大时间范围则直接跳出。因为每条的时间戳都线性递增的。所以没有必要继续后面的
                     break
 
             # ---------------------------------------------- 原始数据处理开始 ----------------------------------------------
-            self.nofilter_org_dict['ZUIG'] = max(self.nofilter_org_dict['ZUIG']) if self.nofilter_org_dict['ZUIG'] else 0
-            self.nofilter_org_dict['ZUID'] = min(self.nofilter_org_dict['ZUID']) if self.nofilter_org_dict['ZUID'] else 0
-            self.nofilter_org_dict['KPAN'] = self.nofilter_org_dict['KPAN'][0] if self.nofilter_org_dict['KPAN'] else 0
-            self.nofilter_org_dict['SPAN'] = self.nofilter_org_dict['SPAN'][len(self.nofilter_org_dict['SPAN']) - 1] if self.nofilter_org_dict['SPAN'] else 0
+            self.non_filter_org_dict['ZUIG'] = max(self.non_filter_org_dict['ZUIG']) if self.non_filter_org_dict['ZUIG'] else 0
+            self.non_filter_org_dict['ZUID'] = min(self.non_filter_org_dict['ZUID']) if self.non_filter_org_dict['ZUID'] else 0
+            self.non_filter_org_dict['KPAN'] = self.non_filter_org_dict['KPAN'][0] if self.non_filter_org_dict['KPAN'] else 0
+            self.non_filter_org_dict['SPAN'] = self.non_filter_org_dict['SPAN'][len(self.non_filter_org_dict['SPAN']) - 1] if self.non_filter_org_dict['SPAN'] else 0
 
             self.big_org_dict['ZUIG'] = max(self.big_org_dict['ZUIG']) if self.big_org_dict['ZUIG'] else 0
             self.big_org_dict['ZUID'] = min(self.big_org_dict['ZUID']) if self.big_org_dict['ZUID'] else 0
             self.big_org_dict['KPAN'] = self.big_org_dict['KPAN'][0] if self.big_org_dict['KPAN'] else 0
             self.big_org_dict['SPAN'] = self.big_org_dict['SPAN'][len(self.big_org_dict['SPAN']) - 1] if self.big_org_dict['SPAN'] else 0
 
+            self.middle_org_dict['ZUIG'] = max(self.middle_org_dict['ZUIG']) if self.middle_org_dict['ZUIG'] else 0
+            self.middle_org_dict['ZUID'] = min(self.middle_org_dict['ZUID']) if self.middle_org_dict['ZUID'] else 0
+            self.middle_org_dict['KPAN'] = self.middle_org_dict['KPAN'][0] if self.middle_org_dict['KPAN'] else 0
+            self.middle_org_dict['SPAN'] = self.middle_org_dict['SPAN'][len(self.middle_org_dict['SPAN']) - 1] if self.middle_org_dict['SPAN'] else 0
+
             self.small_org_dict['ZUIG'] = max(self.small_org_dict['ZUIG']) if self.small_org_dict['ZUIG'] else 0
             self.small_org_dict['ZUID'] = min(self.small_org_dict['ZUID']) if self.small_org_dict['ZUID'] else 0
             self.small_org_dict['KPAN'] = self.small_org_dict['KPAN'][0] if self.small_org_dict['KPAN'] else 0
             self.small_org_dict['SPAN'] = self.small_org_dict['SPAN'][len(self.small_org_dict['SPAN']) - 1] if self.small_org_dict['SPAN'] else 0
 
-            self.other_org_dict['ZUIG'] = max(self.other_org_dict['ZUIG']) if self.other_org_dict['ZUIG'] else 0
-            self.other_org_dict['ZUID'] = min(self.other_org_dict['ZUID']) if self.other_org_dict['ZUID'] else 0
-            self.other_org_dict['KPAN'] = self.other_org_dict['KPAN'][0] if self.other_org_dict['KPAN'] else 0
-            self.other_org_dict['SPAN'] = self.other_org_dict['SPAN'][len(self.other_org_dict['SPAN']) - 1] if self.other_org_dict['SPAN'] else 0
-
-            self.org_non_filter_printout_table_dict(interval, self.non_filter_org_print_dict, self.nofilter_org_dict)
+            self.org_non_filter_printout_table_dict(interval, self.non_filter_org_print_dict, self.non_filter_org_dict)
             self.org_filter_printout_table_dict(self.big_org_printout_dict, self.big_org_dict)
+            self.org_filter_printout_table_dict(self.middle_org_printout_dict, self.middle_org_dict)
             self.org_filter_printout_table_dict(self.small_org_printout_dict, self.small_org_dict)
-            self.org_filter_printout_table_dict(self.other_org_printout_dict, self.other_org_dict)
             # ---------------------------------------------- 原始数据处理完毕 ----------------------------------------------
 
             # ---------------------------------------------- 处理后数据处理开始 ----------------------------------------------
-            non_filter_duo = self.nofilter_org_dict['KDKD'] + self.nofilter_org_dict['SHSK'] + self.nofilter_org_dict['PKPK']
-            non_filter_kong = self.nofilter_org_dict['KKKK'] + self.nofilter_org_dict['XHSK'] + self.nofilter_org_dict['PDPD']
+            non_filter_duo = self.non_filter_org_dict['KDKD'] + self.non_filter_org_dict['SHSK'] + self.non_filter_org_dict['PKPK']
+            non_filter_kong = self.non_filter_org_dict['KKKK'] + self.non_filter_org_dict['XHSK'] + self.non_filter_org_dict['PDPD']
             non_filter_duo_kong_bi = (non_filter_duo / non_filter_kong) if non_filter_kong != 0 else 0
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.non_filter_hdl_printout_dict['DKB'].append(non_filter_duo_kong_bi)
@@ -328,42 +328,42 @@ class DataHandler(object):
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.big_hdl_printout_dict['DKB'].append(big_duo_kong_bi)
 
-            small_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
-            small_kong = self.small_org_dict['KKKK'] + self.small_org_dict['XHSK'] + self.small_org_dict['PDPD']
+            small_duo = self.middle_org_dict['KDKD'] + self.middle_org_dict['SHSK'] + self.middle_org_dict['PKPK']
+            small_kong = self.middle_org_dict['KKKK'] + self.middle_org_dict['XHSK'] + self.middle_org_dict['PDPD']
             small_duo_kong_bi = (small_duo / small_kong) if small_kong != 0 else 0
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-                self.small_hdl_printout_dict['DKB'].append(small_duo_kong_bi)
+                self.middle_hdl_printout_dict['DKB'].append(small_duo_kong_bi)
 
-            other_duo = self.other_org_dict['KDKD'] + self.other_org_dict['SHSK'] + self.other_org_dict['PKPK']
-            other_kong = self.other_org_dict['KKKK'] + self.other_org_dict['XHSK'] + self.other_org_dict['PDPD']
+            other_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
+            other_kong = self.small_org_dict['KKKK'] + self.small_org_dict['XHSK'] + self.small_org_dict['PDPD']
             other_duo_kong_bi = (other_duo / other_kong) if other_kong != 0 else 0
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-                self.other_hdl_printout_dict['DKB'].append(other_duo_kong_bi)
+                self.small_hdl_printout_dict['DKB'].append(other_duo_kong_bi)
 
         # 打印原始数据表格
         self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.org_data_logger)
         self.print_generated_table(interval, self.big_org_printout_dict, u'大单', self.org_data_logger)
-        self.print_generated_table(interval, self.small_org_printout_dict, u'小单', self.org_data_logger)
-        self.print_generated_table(interval, self.other_org_printout_dict, u'其他', self.org_data_logger)
+        self.print_generated_table(interval, self.middle_org_printout_dict, u'小单', self.org_data_logger)
+        self.print_generated_table(interval, self.small_org_printout_dict, u'其他', self.org_data_logger)
         # 打印处理过的数据表格
         self.print_generated_table(interval, self.non_filter_hdl_printout_dict, u'无过滤', self.hdl_data_logger)
         self.print_generated_table(interval, self.big_hdl_printout_dict, u'大单', self.hdl_data_logger)
-        self.print_generated_table(interval, self.small_hdl_printout_dict, u'小单', self.hdl_data_logger)
-        self.print_generated_table(interval, self.other_hdl_printout_dict, u'其他', self.hdl_data_logger)
-        # 打印到Excel文件
+        self.print_generated_table(interval, self.middle_hdl_printout_dict, u'小单', self.hdl_data_logger)
+        self.print_generated_table(interval, self.small_hdl_printout_dict, u'其他', self.hdl_data_logger)
+        # 打印原始数据到Excel文件
         IntervalSumExceTableWriter(ORG_INTERVAL_DATA_EXCEL,
                                    self.non_filter_org_print_dict,
                                    self.big_org_printout_dict,
+                                   self.middle_org_printout_dict,
                                    self.small_org_printout_dict,
-                                   self.other_org_printout_dict,
                                    self.date_list, self.time_list)
-
-        IntervalSumExceTableWriter(HDL_INTERVAL_BIG_EXCEL,
-                                   self.non_filter_hdl_printout_dict,
-                                   self.big_hdl_printout_dict,
-                                   self.small_hdl_printout_dict,
-                                   self.other_hdl_printout_dict,
-                                   self.date_list, self.time_list)
+        # 打印处理过的数据到Excel文件
+        IntervalHandledSumExceTableWriter(HDL_INTERVAL_BIG_EXCEL,
+                                          self.non_filter_hdl_printout_dict,
+                                          self.big_hdl_printout_dict,
+                                          self.middle_hdl_printout_dict,
+                                          self.small_hdl_printout_dict,
+                                          self.date_list, self.time_list)
 
     def print_generated_table(self, interval, printout_dict, string_name, logger):
         printout_table = PrettyTable(border=self.border)
