@@ -3,7 +3,7 @@
 
 import xlsxwriter as xlsxwriter
 
-from constants import ORG_KEY_CHN_TITLE_DICT, ORG_ALL_SUM_EXCEL, ORG_ALL_DETAIL_EXCEL, ALL_KEY_CHN_TITLE_DICT
+from constants import ORG_KEY_CHN_TITLE_DICT, ORG_ALL_SUM_EXCEL, ORG_ALL_DETAIL_EXCEL, ALL_KEY_CHN_TITLE_DICT, light_green, green, light_blue, positive, negative
 
 
 class ExcelTableWriter(object):
@@ -116,8 +116,11 @@ class IntervalHandledSumExceTableWriter(ExcelTableWriter):
 
         self.excel_file_handler = xlsxwriter.Workbook(table_name)
         self.table_handler = self.excel_file_handler.add_worksheet(u'多空比汇总')
-        self.title_bold_format = self.excel_file_handler.add_format({'bold': True, 'border': 2, 'bg_color': 'green'})
-        self.normal_column_format = self.excel_file_handler.add_format({'bg_color': 'blue'})
+        self.title_bold_format = self.excel_file_handler.add_format({'bold': True, 'border': 2, 'bg_color': light_blue})
+        self.normal_column_format = self.excel_file_handler.add_format({'bg_color': light_green})
+        self.positive = self.excel_file_handler.add_format({'bg_color': positive})
+        self.negative = self.excel_file_handler.add_format({'bg_color': negative})
+
         self.border = self.excel_file_handler.add_format({'border': 1})
         self.title_names = self.non_filter_data_values.keys()
         self.create_interval_sum_excel_sheet(non_filter_sum, big_data_sum, middle_data_sum, small_data_sum, date_str_list, time_str_list)
@@ -144,33 +147,33 @@ class IntervalHandledSumExceTableWriter(ExcelTableWriter):
                 self.table_handler.write_string(row_idx + 1, 0, date_str_list[row_idx])  # 日期
                 self.table_handler.write_string(row_idx + 1, 1, time_str_list[row_idx])  # 时间
 
-                self.table_handler.write_string(row_idx + 1, 2, u'无过滤', self.normal_column_format)
+                self.table_handler.write_string(row_idx + 1, 2, u'无过滤')
                 non_filter_data = self.non_filter_data_values[key][row_idx]
                 if is_digit_number(non_filter_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 3, non_filter_data)
+                    self.table_handler.write_number(row_idx + 1, column_idx + 3, non_filter_data, self.positive if non_filter_data < 1 else self.negative)
                 else:
-                    self.table_handler.write_string(row_idx + 1, column_idx + 3, str(non_filter_data))
+                    self.table_handler.write_string(row_idx + 1, column_idx + 3, str(non_filter_data), self.positive if non_filter_data < 1 else self.negative)
 
-                self.table_handler.write_string(row_idx + 1, 4, u'大单', self.normal_column_format)
+                self.table_handler.write_string(row_idx + 1, 4, u'大单')
                 big_data = self.big_data_values[key][row_idx]
                 if is_digit_number(big_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 5, big_data)
+                    self.table_handler.write_number(row_idx + 1, column_idx + 5, big_data, self.positive if big_data < 1 else self.negative)
                 else:
-                    self.table_handler.write_string(row_idx + 1, column_idx + 5, str(big_data))
+                    self.table_handler.write_string(row_idx + 1, column_idx + 5, str(big_data), self.positive if big_data < 1 else self.negative)
 
-                self.table_handler.write_string(row_idx + 1, 6, u'中单', self.normal_column_format)
+                self.table_handler.write_string(row_idx + 1, 6, u'中单')
                 middle_data = self.middle_data_values[key][row_idx]
                 if is_digit_number(middle_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 7, middle_data)
+                    self.table_handler.write_number(row_idx + 1, column_idx + 7, middle_data, self.positive if middle_data < 1 else self.negative)
                 else:
-                    self.table_handler.write_string(row_idx + 1, column_idx + 7, str(middle_data))
+                    self.table_handler.write_string(row_idx + 1, column_idx + 7, str(middle_data), self.positive if middle_data < 1 else self.negative)
 
-                self.table_handler.write_string(row_idx + 1, 8, u'小单', self.normal_column_format)
+                self.table_handler.write_string(row_idx + 1, 8, u'小单')
                 small_data = self.small_data_values[key][row_idx]
                 if is_digit_number(small_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 9, small_data)
+                    self.table_handler.write_number(row_idx + 1, column_idx + 9, small_data, self.positive if small_data < 1 else self.negative)
                 else:
-                    self.table_handler.write_string(row_idx + 1, column_idx + 9, str(small_data))
+                    self.table_handler.write_string(row_idx + 1, column_idx + 9, str(small_data), self.positive if small_data < 1 else self.negative)
             column_idx += 1
 
 

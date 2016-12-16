@@ -250,6 +250,14 @@ class DataHandler(object):
         AllSumExceTableWriter(self.all_data_dict.keys(), self.all_data_dict)
 
     def print_interval_sum_tbls(self, interval):
+        non_filter_duo_sum = 0
+        non_filter_kong_sum = 0
+        big_duo_sum = 0
+        big_kong_sum = 0
+        middle_duo_sum = 0
+        middle_kong_sum = 0
+        small_duo_sum = 0
+        small_kong_sum = 0
         number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
         self.org_data_logger.debug(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据',
                                    self.cfg_file[self.config_name]['chinese'],
@@ -269,14 +277,6 @@ class DataHandler(object):
             reset_dict(self.big_data_hdl_dict)
             reset_dict(self.middle_data_hdl_dict)
             reset_dict(self.small_data_hdl_dict)
-            non_filter_duo_sum = 0
-            non_filter_kong_sum = 0
-            big_duo_sum = 0
-            big_kong_sum = 0
-            middle_duo_sum = 0
-            middle_kong_sum = 0
-            small_duo_sum = 0
-            small_kong_sum = 0
 
             start_time_diff = FENZHONG_1 * int(interval) * each_loop
             end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)

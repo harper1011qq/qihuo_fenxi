@@ -21,6 +21,11 @@ CONFIG_NAME = 'config.json'
 TEXT_EXCEL_FILE_NAME = 'temp.file.txt'
 INFLUX_DB_NAME = 'qihuo'
 
+positive =  '66cc33'
+negative =  'cc3333'
+light_blue = '#3c78d8'
+light_green = '#6aa84f'
+
 FENZHONG_1 = 60
 FENZHONG_5 = 5 * FENZHONG_1
 FENZHONG_15 = 15 * FENZHONG_1
