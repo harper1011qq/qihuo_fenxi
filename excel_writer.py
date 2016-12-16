@@ -10,7 +10,7 @@ class ExcelTableWriter(object):
     def __init__(self, excel_file_name, sheet_name, title_names, data_values):
         self.excel_file_handler = xlsxwriter.Workbook(excel_file_name)
         self.table_handler = self.excel_file_handler.add_worksheet(sheet_name)
-        self.title_bold = self.excel_file_handler.add_format({
+        self.title_bold_format = self.excel_file_handler.add_format({
             'bold': True,
             'border': 2,
             'bg_color': 'green'
@@ -28,7 +28,7 @@ class AllDetailExcelTableWriter(ExcelTableWriter):
     def create_all_detail_excel_file(self):
         for i, j in enumerate(self.title_names):
             self.table_handler.set_column(i, i, 8)
-            self.table_handler.write_string(0, i, ORG_KEY_CHN_TITLE_DICT[j], self.title_bold)
+            self.table_handler.write_string(0, i, ORG_KEY_CHN_TITLE_DICT[j], self.title_bold_format)
         for (row_idx, value) in self.data_values.iteritems():
             column_idx = 0
             for (k, v) in value.iteritems():
@@ -48,7 +48,7 @@ class AllSumExceTableWriter(ExcelTableWriter):
     def create_all_sum_excel_file(self):
         for i, j in enumerate(self.title_names):
             self.table_handler.set_column(i, i, 8)
-            self.table_handler.write_string(0, i, ORG_KEY_CHN_TITLE_DICT[j], self.title_bold)
+            self.table_handler.write_string(0, i, ORG_KEY_CHN_TITLE_DICT[j], self.title_bold_format)
         column_idx = 0
         for (key, value) in self.data_values.iteritems():
             row_idx = 0
@@ -106,33 +106,37 @@ class IntervalSumExceTableWriter(ExcelTableWriter):
 
 
 class IntervalHandledSumExceTableWriter(ExcelTableWriter):
-    def __init__(self, table_name, non_filter_data_values, big_data_values, small_data_values, other_data_values, date_str_list, time_str_list):
+    def __init__(self, table_name,
+                 non_filter_data_values, big_data_values, middle_data_values, small_data_values,
+                 non_filter_sum, big_data_sum, middle_data_sum, small_data_sum, date_str_list, time_str_list):
         self.non_filter_data_values = non_filter_data_values
         self.big_data_values = big_data_values
-        self.middle_data_values = small_data_values
-        self.small_data_values = other_data_values
+        self.middle_data_values = middle_data_values
+        self.small_data_values = small_data_values
 
         self.excel_file_handler = xlsxwriter.Workbook(table_name)
-        self.table_handler = self.excel_file_handler.add_worksheet(u'处理过数据分段统计')
-        self.title_bold = self.excel_file_handler.add_format({'bold': True, 'border': 2, 'bg_color': 'green'})
+        self.table_handler = self.excel_file_handler.add_worksheet(u'多空比汇总')
+        self.title_bold_format = self.excel_file_handler.add_format({'bold': True, 'border': 2, 'bg_color': 'green'})
+        self.normal_column_format = self.excel_file_handler.add_format({'bg_color': 'blue'})
         self.border = self.excel_file_handler.add_format({'border': 1})
         self.title_names = self.non_filter_data_values.keys()
-        self.create_interval_sum_excel_file(date_str_list, time_str_list)
-
-    def create_interval_sum_excel_file(self, date_str_list, time_str_list):
-        self.create_interval_sum_excel_sheet(date_str_list, time_str_list)
+        self.create_interval_sum_excel_sheet(non_filter_sum, big_data_sum, middle_data_sum, small_data_sum, date_str_list, time_str_list)
         self.excel_file_handler.close()
 
-    def create_interval_sum_excel_sheet(self, date_str_list, time_str_list):
-        self.table_handler.write_string(0, 0, u'日期', self.title_bold)
-        self.table_handler.write_string(0, 1, u'时间', self.title_bold)
+    def create_interval_sum_excel_sheet(self, non_filter_sum, big_data_sum, middle_data_sum, small_data_sum, date_str_list, time_str_list):
+        self.table_handler.write_string(0, 0, u'日期', self.title_bold_format)
+        self.table_handler.write_string(0, 1, u'时间', self.title_bold_format)
         self.table_handler.set_column(0, 0, 10)
         self.table_handler.set_column(1, len(self.non_filter_data_values.keys()), 8)
         for i, j in enumerate(self.title_names):
-            self.table_handler.write_string(0, i + 2, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold)
-            self.table_handler.write_string(0, i + 4, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold)
-            self.table_handler.write_string(0, i + 6, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold)
-            self.table_handler.write_string(0, i + 8, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold)
+            self.table_handler.write_string(0, i + 2, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold_format)
+            self.table_handler.write_number(0, i + 3, round(non_filter_sum, 3))
+            self.table_handler.write_string(0, i + 4, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold_format)
+            self.table_handler.write_number(0, i + 5, round(big_data_sum, 3))
+            self.table_handler.write_string(0, i + 6, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold_format)
+            self.table_handler.write_number(0, i + 7, round(middle_data_sum, 3))
+            self.table_handler.write_string(0, i + 8, ALL_KEY_CHN_TITLE_DICT[j], self.title_bold_format)
+            self.table_handler.write_number(0, i + 9, round(small_data_sum, 3))
 
         column_idx = 0
         for key in self.non_filter_data_values.keys():
@@ -140,31 +144,31 @@ class IntervalHandledSumExceTableWriter(ExcelTableWriter):
                 self.table_handler.write_string(row_idx + 1, 0, date_str_list[row_idx])  # 日期
                 self.table_handler.write_string(row_idx + 1, 1, time_str_list[row_idx])  # 时间
 
-                self.table_handler.write_string(row_idx + 1, 2, u'无过滤', self.title_bold)
+                self.table_handler.write_string(row_idx + 1, 2, u'无过滤', self.normal_column_format)
                 non_filter_data = self.non_filter_data_values[key][row_idx]
                 if is_digit_number(non_filter_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 3, int(non_filter_data))
+                    self.table_handler.write_number(row_idx + 1, column_idx + 3, non_filter_data)
                 else:
                     self.table_handler.write_string(row_idx + 1, column_idx + 3, str(non_filter_data))
 
-                self.table_handler.write_string(row_idx + 1, 4, u'大单', self.title_bold)
+                self.table_handler.write_string(row_idx + 1, 4, u'大单', self.normal_column_format)
                 big_data = self.big_data_values[key][row_idx]
                 if is_digit_number(big_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 5, int(big_data))
+                    self.table_handler.write_number(row_idx + 1, column_idx + 5, big_data)
                 else:
                     self.table_handler.write_string(row_idx + 1, column_idx + 5, str(big_data))
 
-                self.table_handler.write_string(row_idx + 1, 6, u'中单', self.title_bold)
+                self.table_handler.write_string(row_idx + 1, 6, u'中单', self.normal_column_format)
                 middle_data = self.middle_data_values[key][row_idx]
                 if is_digit_number(middle_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 7, int(middle_data))
+                    self.table_handler.write_number(row_idx + 1, column_idx + 7, middle_data)
                 else:
                     self.table_handler.write_string(row_idx + 1, column_idx + 7, str(middle_data))
 
-                self.table_handler.write_string(row_idx + 1, 8, u'小单', self.title_bold)
+                self.table_handler.write_string(row_idx + 1, 8, u'小单', self.normal_column_format)
                 small_data = self.small_data_values[key][row_idx]
                 if is_digit_number(small_data):
-                    self.table_handler.write_number(row_idx + 1, column_idx + 9, int(small_data))
+                    self.table_handler.write_number(row_idx + 1, column_idx + 9, small_data)
                 else:
                     self.table_handler.write_string(row_idx + 1, column_idx + 9, str(small_data))
             column_idx += 1

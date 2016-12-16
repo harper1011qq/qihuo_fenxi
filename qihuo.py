@@ -269,6 +269,15 @@ class DataHandler(object):
             reset_dict(self.big_data_hdl_dict)
             reset_dict(self.middle_data_hdl_dict)
             reset_dict(self.small_data_hdl_dict)
+            non_filter_duo_sum = 0
+            non_filter_kong_sum = 0
+            big_duo_sum = 0
+            big_kong_sum = 0
+            middle_duo_sum = 0
+            middle_kong_sum = 0
+            small_duo_sum = 0
+            small_kong_sum = 0
+
             start_time_diff = FENZHONG_1 * int(interval) * each_loop
             end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)
             loop_dict_values = deepcopy(self.datadict.values())
@@ -318,27 +327,35 @@ class DataHandler(object):
             # ---------------------------------------------- 处理后数据处理开始 ----------------------------------------------
             non_filter_duo = self.non_filter_org_dict['KDKD'] + self.non_filter_org_dict['SHSK'] + self.non_filter_org_dict['PKPK']
             non_filter_kong = self.non_filter_org_dict['KKKK'] + self.non_filter_org_dict['XHSK'] + self.non_filter_org_dict['PDPD']
-            non_filter_duo_kong_bi = (non_filter_duo / non_filter_kong) if non_filter_kong != 0 else 0
+            non_filter_duo_kong_bi = float(non_filter_duo) / non_filter_kong if non_filter_kong != 0 else 0
+            non_filter_duo_sum += non_filter_duo
+            non_filter_kong_sum += non_filter_kong
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-                self.non_filter_hdl_printout_dict['DKB'].append(non_filter_duo_kong_bi)
+                self.non_filter_hdl_printout_dict['DKB'].append(round(non_filter_duo_kong_bi, 3))
 
             big_duo = self.big_org_dict['KDKD'] + self.big_org_dict['SHSK'] + self.big_org_dict['PKPK']
             big_kong = self.big_org_dict['KKKK'] + self.big_org_dict['XHSK'] + self.big_org_dict['PDPD']
-            big_duo_kong_bi = (big_duo / big_kong) if big_kong != 0 else 0
+            big_duo_kong_bi = float(big_duo) / big_kong if big_kong != 0 else 0
+            big_duo_sum += big_duo
+            big_kong_sum += big_kong
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-                self.big_hdl_printout_dict['DKB'].append(big_duo_kong_bi)
+                self.big_hdl_printout_dict['DKB'].append(round(big_duo_kong_bi, 3))
 
-            small_duo = self.middle_org_dict['KDKD'] + self.middle_org_dict['SHSK'] + self.middle_org_dict['PKPK']
-            small_kong = self.middle_org_dict['KKKK'] + self.middle_org_dict['XHSK'] + self.middle_org_dict['PDPD']
-            small_duo_kong_bi = (small_duo / small_kong) if small_kong != 0 else 0
+            middle_duo = self.middle_org_dict['KDKD'] + self.middle_org_dict['SHSK'] + self.middle_org_dict['PKPK']
+            middle_kong = self.middle_org_dict['KKKK'] + self.middle_org_dict['XHSK'] + self.middle_org_dict['PDPD']
+            middle_duo_kong_bi = float(middle_duo) / middle_kong if middle_kong != 0 else 0
+            middle_duo_sum += middle_duo
+            middle_kong_sum += middle_kong
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-                self.middle_hdl_printout_dict['DKB'].append(small_duo_kong_bi)
+                self.middle_hdl_printout_dict['DKB'].append(round(middle_duo_kong_bi, 3))
 
-            other_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
-            other_kong = self.small_org_dict['KKKK'] + self.small_org_dict['XHSK'] + self.small_org_dict['PDPD']
-            other_duo_kong_bi = (other_duo / other_kong) if other_kong != 0 else 0
+            small_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
+            small_kong = self.small_org_dict['KKKK'] + self.small_org_dict['XHSK'] + self.small_org_dict['PDPD']
+            small_duo_kong_bi = float(small_duo) / small_kong if small_kong != 0 else 0
+            small_duo_sum += small_duo
+            small_kong_sum += small_kong
             if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-                self.small_hdl_printout_dict['DKB'].append(other_duo_kong_bi)
+                self.small_hdl_printout_dict['DKB'].append(round(small_duo_kong_bi, 3))
 
         # 打印原始数据表格
         self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.org_data_logger)
@@ -363,6 +380,10 @@ class DataHandler(object):
                                           self.big_hdl_printout_dict,
                                           self.middle_hdl_printout_dict,
                                           self.small_hdl_printout_dict,
+                                          float(non_filter_duo_sum) / non_filter_kong_sum,
+                                          float(big_duo_sum) / big_kong_sum,
+                                          float(middle_duo_sum) / middle_kong_sum,
+                                          float(small_duo_sum) / small_kong_sum,
                                           self.date_list, self.time_list)
 
     def print_generated_table(self, interval, printout_dict, string_name, logger):
