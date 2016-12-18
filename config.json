@@ -1,13 +1,19 @@
 {
   "baicha": {
     "chinese": "白茶",
-    "filename": "baicha1.txt",
+    "filename": "白茶1.txt",
     "big": 500,
     "small": 100
   },
   "cuiya": {
     "chinese": "翠芽",
     "filename": "cuiya1.txt",
+    "big": 500,
+    "small": 100
+  },
+  "dami": {
+    "chinese": "石板大米",
+    "filename": "石板大米.txt",
     "big": 500,
     "small": 100
   }

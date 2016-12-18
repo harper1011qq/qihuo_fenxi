@@ -3,7 +3,7 @@
 
 import xlsxwriter as xlsxwriter
 
-from constants import ORG_KEY_CHN_TITLE_DICT, ORG_ALL_SUM_EXCEL, ORG_ALL_DETAIL_EXCEL, ALL_KEY_CHN_TITLE_DICT, light_green, green, light_blue, positive, negative
+from constants import ORG_KEY_CHN_TITLE_DICT, ORG_ALL_SUM_EXCEL, ORG_ALL_DETAIL_EXCEL, ALL_KEY_CHN_TITLE_DICT, light_green, light_blue, positive, negative
 
 
 class ExcelTableWriter(object):

@@ -15,12 +15,13 @@ from prettytable import PrettyTable
 
 from constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
     INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
-    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time
+    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time, is_trade_end_time
 from excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter, IntervalHandledSumExceTableWriter
 
 
 class DataHandler(object):
     def __init__(self, name=None, border=False):
+        self.trade_period = 'day'
         self.log_logger = get_log_handler()
         self.org_data_logger = get_org_data_handler()
         self.hdl_data_logger = get_hdl_data_handler()
@@ -126,6 +127,8 @@ class DataHandler(object):
         self.static_first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.last_record_timestamp = deepcopy(self.datadict[0]['SHIJ'])
+        self.trade_period = 'night' if time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp)).split(',')[1] == '19:00:00' else 'day'
+
         # 确定第一个交易位置值
         for each in reversed_keys:
             if each < earliest_record_index_number:
@@ -268,6 +271,7 @@ class DataHandler(object):
                  self.cfg_file[self.config_name]['filename'],
                  interval, number_of_interval))
 
+        start_time_1 = time.time()
         for each_loop in range(0, number_of_interval):
             reset_dict(self.non_filter_org_dict)
             reset_dict(self.big_org_dict)
@@ -284,7 +288,9 @@ class DataHandler(object):
             loop_dict_values.reverse()
             for each_value in loop_dict_values:
                 loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
-                if start_time_diff <= loop_time_diff < end_time_diff and is_trade_time(epoch_time=each_value['SHIJ']):
+                self.log_logger.error('%s, %s, %s, %s, %s', start_time_diff, loop_time_diff, end_time_diff, each_value['SHIJ'], self.static_first_record_timestamp)
+                if (start_time_diff <= loop_time_diff <= end_time_diff if is_trade_end_time(each_value['SHIJ']) else start_time_diff <= loop_time_diff < end_time_diff) \
+                        and is_trade_time(self.trade_period, epoch_time=each_value['SHIJ']):
                     # 无过滤条件
                     self.pack_data_into_dict(each_value, self.non_filter_org_dict, filter_range=(MIN, MAX))
                     # 大单
@@ -324,13 +330,13 @@ class DataHandler(object):
             self.org_filter_printout_table_dict(self.small_org_printout_dict, self.small_org_dict)
             # ---------------------------------------------- 原始数据处理完毕 ----------------------------------------------
 
-            # ---------------------------------------------- 处理后数据处理开始 ----------------------------------------------
+            # ---------------------------------------------- '处理后'数据处理开始 ----------------------------------------------
             non_filter_duo = self.non_filter_org_dict['KDKD'] + self.non_filter_org_dict['SHSK'] + self.non_filter_org_dict['PKPK']
             non_filter_kong = self.non_filter_org_dict['KKKK'] + self.non_filter_org_dict['XHSK'] + self.non_filter_org_dict['PDPD']
             non_filter_duo_kong_bi = float(non_filter_duo) / non_filter_kong if non_filter_kong != 0 else 0
             non_filter_duo_sum += non_filter_duo
             non_filter_kong_sum += non_filter_kong
-            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.non_filter_hdl_printout_dict['DKB'].append(round(non_filter_duo_kong_bi, 3))
 
             big_duo = self.big_org_dict['KDKD'] + self.big_org_dict['SHSK'] + self.big_org_dict['PKPK']
@@ -338,7 +344,7 @@ class DataHandler(object):
             big_duo_kong_bi = float(big_duo) / big_kong if big_kong != 0 else 0
             big_duo_sum += big_duo
             big_kong_sum += big_kong
-            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.big_hdl_printout_dict['DKB'].append(round(big_duo_kong_bi, 3))
 
             middle_duo = self.middle_org_dict['KDKD'] + self.middle_org_dict['SHSK'] + self.middle_org_dict['PKPK']
@@ -346,7 +352,7 @@ class DataHandler(object):
             middle_duo_kong_bi = float(middle_duo) / middle_kong if middle_kong != 0 else 0
             middle_duo_sum += middle_duo
             middle_kong_sum += middle_kong
-            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.middle_hdl_printout_dict['DKB'].append(round(middle_duo_kong_bi, 3))
 
             small_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
@@ -354,19 +360,26 @@ class DataHandler(object):
             small_duo_kong_bi = float(small_duo) / small_kong if small_kong != 0 else 0
             small_duo_sum += small_duo
             small_kong_sum += small_kong
-            if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.small_hdl_printout_dict['DKB'].append(round(small_duo_kong_bi, 3))
+            print(u'第%s分段数据循环处理完毕，耗时: %s' % (each_loop + 1, time.time() - start_time_1))
 
+        print(u'所有数据循环读取完毕，耗时: %s' % (time.time() - start_time_1))
+        start_time_4 = time.time()
         # 打印原始数据表格
         self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.org_data_logger)
         self.print_generated_table(interval, self.big_org_printout_dict, u'大单', self.org_data_logger)
         self.print_generated_table(interval, self.middle_org_printout_dict, u'小单', self.org_data_logger)
         self.print_generated_table(interval, self.small_org_printout_dict, u'其他', self.org_data_logger)
+        print(u'打印原始数据表格完毕。 耗时:%s' % (time.time() - start_time_4))
+        start_time_5 = time.time()
         # 打印处理过的数据表格
         self.print_generated_table(interval, self.non_filter_hdl_printout_dict, u'无过滤', self.hdl_data_logger)
         self.print_generated_table(interval, self.big_hdl_printout_dict, u'大单', self.hdl_data_logger)
         self.print_generated_table(interval, self.middle_hdl_printout_dict, u'小单', self.hdl_data_logger)
         self.print_generated_table(interval, self.small_hdl_printout_dict, u'其他', self.hdl_data_logger)
+        print(u'打印原始数据表格完毕。 耗时:%s' % (time.time() - start_time_5))
+        start_time_6 = time.time()
         # 打印原始数据到Excel文件
         IntervalSumExceTableWriter(ORG_INTERVAL_DATA_EXCEL,
                                    self.non_filter_org_print_dict,
@@ -374,17 +387,20 @@ class DataHandler(object):
                                    self.middle_org_printout_dict,
                                    self.small_org_printout_dict,
                                    self.date_list, self.time_list)
+        print(u'打印原始数据到Excel文件。 耗时:%s' % (time.time() - start_time_6))
+        start_time_7 = time.time()
         # 打印处理过的数据到Excel文件
         IntervalHandledSumExceTableWriter(HDL_INTERVAL_BIG_EXCEL,
                                           self.non_filter_hdl_printout_dict,
                                           self.big_hdl_printout_dict,
                                           self.middle_hdl_printout_dict,
                                           self.small_hdl_printout_dict,
-                                          float(non_filter_duo_sum) / non_filter_kong_sum,
-                                          float(big_duo_sum) / big_kong_sum,
-                                          float(middle_duo_sum) / middle_kong_sum,
-                                          float(small_duo_sum) / small_kong_sum,
+                                          (float(non_filter_duo_sum) / non_filter_kong_sum) if non_filter_kong_sum else 0,
+                                          (float(big_duo_sum) / big_kong_sum) if big_kong_sum else 0,
+                                          (float(middle_duo_sum) / middle_kong_sum) if middle_kong_sum else 0,
+                                          (float(small_duo_sum) / small_kong_sum) if small_kong_sum else 0,
                                           self.date_list, self.time_list)
+        print(u'打印处理过的数据到Excel文件。 耗时:%s' % (time.time() - start_time_7))
 
     def print_generated_table(self, interval, printout_dict, string_name, logger):
         printout_table = PrettyTable(border=self.border)
@@ -399,7 +415,7 @@ class DataHandler(object):
         updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
         date_string = time.strftime('%Y-%m-%d', time.localtime(self.first_record_timestamp))
         end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
-        if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(updated_record_timestamp))):
+        if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
             self.date_list.append(u'%s' % date_string)
             self.time_list.append(u'%s' % end_time)
             for key in ORG_EMPTY_DATA_DICT.keys():
@@ -407,7 +423,7 @@ class DataHandler(object):
         self.first_record_timestamp = updated_record_timestamp
 
     def org_filter_printout_table_dict(self, filter_printout_dict, data_dict):
-        if is_trade_time(string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+        if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
             for key in ORG_EMPTY_DATA_DICT.keys():
                 filter_printout_dict[key].append(data_dict[key])
 
@@ -473,7 +489,7 @@ def main(interval=None, name=None, border=False):
     data_handler.read_file()
     data_handler.generate_dynamic_data()
     # data_handler.load_dynamic_data_into_influxdb()
-    data_handler.print_to_file()
+    # data_handler.print_to_file()
     # data_handler.print_as_text()
     data_handler.print_all_sum()
     data_handler.print_interval_sum_tbls(interval)

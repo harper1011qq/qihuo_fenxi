@@ -21,8 +21,8 @@ CONFIG_NAME = 'config.json'
 TEXT_EXCEL_FILE_NAME = 'temp.file.txt'
 INFLUX_DB_NAME = 'qihuo'
 
-positive =  '66cc33'
-negative =  'cc3333'
+positive = '66cc33'
+negative = 'cc3333'
 light_blue = '#3c78d8'
 light_green = '#6aa84f'
 
@@ -169,20 +169,33 @@ def reset_dict(dict_data):
             dict_data[k] = 0
 
 
-def is_trade_time(epoch_time=None, string_time=None):
+def is_trade_time(trade_period, epoch_time=None, string_time=None):
     if epoch_time:
         date_time_string = time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(epoch_time))
     else:
         date_time_string = string_time
         epoch_time = time.mktime(time.strptime(date_time_string, '%Y-%m-%d,%H:%M:%S'))
     date_string = date_time_string.split(',')[0]
+
     morning_start_time = date_string + ',09:00:00'
     morning_end_time = date_string + ',11:30:00'
-
     afternoon_start_time = date_string + ',13:30:00'
     afternoon_end_time = date_string + ',15:30:00'
+    night_start_time = date_string + ',19:00:00'
+    night_end_time = date_string + ',21:00:00'
 
     in_morning = time.mktime(time.strptime(morning_start_time, '%Y-%m-%d,%H:%M:%S')) <= epoch_time <= time.mktime(time.strptime(morning_end_time, '%Y-%m-%d,%H:%M:%S'))
     in_afternoon = time.mktime(time.strptime(afternoon_start_time, '%Y-%m-%d,%H:%M:%S')) <= epoch_time <= time.mktime(time.strptime(afternoon_end_time, '%Y-%m-%d,%H:%M:%S'))
-    result = in_morning or in_afternoon
-    return result
+    in_night = time.mktime(time.strptime(night_start_time, '%Y-%m-%d,%H:%M:%S')) <= epoch_time <= time.mktime(time.strptime(night_end_time, '%Y-%m-%d,%H:%M:%S'))
+
+    if trade_period == 'night':
+        return in_night
+    else:
+        return in_morning or in_afternoon
+
+
+def is_trade_end_time(epoch_time):
+    date_time_string = time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(epoch_time))
+    if date_time_string.split(',')[1] == '11:30:00' or date_time_string.split(',')[1] == '15:30:00' or date_time_string.split(',')[1] == '21:00:00':
+        return True
+    return False
