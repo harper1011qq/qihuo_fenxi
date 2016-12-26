@@ -2,7 +2,6 @@
 # coding=utf-8
 import json
 import platform
-import pprint
 import re
 import time
 from collections import OrderedDict
@@ -13,10 +12,9 @@ import requests
 from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
-from constants import CONFIG_NAME, get_import_log_handler, ORG_EMPTY_DATA_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, fill_order_org_empty_dict, \
+from constants import CONFIG_NAME, get_import_log_handler, ORG_EMPTY_DATA_DICT, fill_order_org_empty_dict, \
     fill_order_org_list_dict, \
-    is_trade_time, init_interval_empty_dict
+    init_interval_empty_dict
 
 
 class DataHandler(object):
@@ -38,7 +36,6 @@ class DataHandler(object):
         self.each_interval_data = deepcopy(fill_order_org_empty_dict(OrderedDict()))
         self.interval_sum_data_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
         self.interval_data_dict = OrderedDict()
-
 
     def read_config_file(self):
         with open(CONFIG_NAME) as cfg_file:
@@ -148,36 +145,6 @@ class DataHandler(object):
         self.log_logger.debug(u'计算其他动态值所花费时间为：%s', time.time() - start_time)
         # print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
 
-    def insert_into_interval_dict(self, each):
-        tk = self.datadict[each]['SHIJ']
-        each_interval_dict = init_interval_empty_dict(OrderedDict())
-
-        if self.interval_data_dict.get(tk):
-            for k in ORG_EMPTY_DATA_DICT.keys():
-                if k == 'ZUIG':
-                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] < self.datadict[each][k] else self.interval_data_dict[tk][k]
-                elif k == 'ZUIG':
-                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] > self.datadict[each][k] else self.interval_data_dict[tk][k]
-                elif k == 'KPAN':
-                    self.interval_data_dict[tk][k] = self.datadict[0][k]
-                elif k == 'SPAN':
-                    self.interval_data_dict[tk][k] = self.datadict[len(self.datadict.keys()) - 1][k]
-                else:
-                    self.interval_data_dict[tk][k] = self.datadict[each][k] + self.interval_data_dict[tk].get(k, 0)
-        else:
-            for k in ORG_EMPTY_DATA_DICT.keys():
-                if k == 'ZUIG':
-                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] < self.datadict[each][k] else each_interval_dict[k]
-                elif k == 'ZUIG':
-                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] > self.datadict[each][k] else each_interval_dict[k]
-                elif k == 'KPAN':
-                    each_interval_dict[k] = self.datadict[0][k]
-                elif k == 'SPAN':
-                    each_interval_dict[k] = self.datadict[len(self.datadict.keys()) - 1][k]
-                else:
-                    each_interval_dict[k] = self.datadict[each][k] + each_interval_dict.get(k, 0)
-            self.interval_data_dict[tk] = each_interval_dict
-
     def generate_each_dynamic_data(self, weizhi, each):
         if weizhi == 1:
             if self.datadict[each]['KAIC'] < self.datadict[each]['PINGC']:
@@ -212,17 +179,35 @@ class DataHandler(object):
         else:
             self.log_logger.error(u'有问题， 交易位置非1 或 -1')
 
+    def insert_into_interval_dict(self, each):
+        tk = self.datadict[each]['SHIJ']
+        each_interval_dict = init_interval_empty_dict(OrderedDict())
 
-    def converter_data_into_interval_format(self, interval, basic_interval_data_dict, org_data_dict):
-        updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
-        date_string = time.strftime('%Y-%m-%d', time.localtime(self.first_record_timestamp))
-        end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
-        if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-            self.date_list.append(u'%s' % date_string)
-            self.time_list.append(u'%s' % end_time)
-            for key in ORG_EMPTY_DATA_DICT.keys():
-                basic_interval_data_dict[key].append(org_data_dict[key])
-        self.first_record_timestamp = updated_record_timestamp
+        if self.interval_data_dict.get(tk):
+            for k in ORG_EMPTY_DATA_DICT.keys():
+                if k == 'ZUIG':
+                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] < self.datadict[each][k] else self.interval_data_dict[tk][k]
+                elif k == 'ZUIG':
+                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] > self.datadict[each][k] else self.interval_data_dict[tk][k]
+                elif k == 'KPAN':
+                    self.interval_data_dict[tk][k] = self.datadict[0][k]
+                elif k == 'SPAN':
+                    self.interval_data_dict[tk][k] = self.datadict[len(self.datadict.keys()) - 1][k]
+                else:
+                    self.interval_data_dict[tk][k] = self.datadict[each][k] + self.interval_data_dict[tk].get(k, 0)
+        else:
+            for k in ORG_EMPTY_DATA_DICT.keys():
+                if k == 'ZUIG':
+                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] < self.datadict[each][k] else each_interval_dict[k]
+                elif k == 'ZUIG':
+                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] > self.datadict[each][k] else each_interval_dict[k]
+                elif k == 'KPAN':
+                    each_interval_dict[k] = self.datadict[0][k]
+                elif k == 'SPAN':
+                    each_interval_dict[k] = self.datadict[len(self.datadict.keys()) - 1][k]
+                else:
+                    each_interval_dict[k] = self.datadict[each][k] + each_interval_dict.get(k, 0)
+            self.interval_data_dict[tk] = each_interval_dict
 
     @staticmethod
     def get_point_str_data(name, time, data):
@@ -242,7 +227,7 @@ class DataHandler(object):
         for (k, v) in self.interval_data_dict.iteritems():
             point_string_data = self.get_point_str_data(self.config_name, int(k), dict(v))
             json_body.append(point_string_data)
-        client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
+        client = InfluxDBClient('localhost', 8086, 'root', 'root', self.config_name)
         return_value = client.write_points(json_body, time_precision='s')
         self.log_logger.debug(u'写入InfluxDB数据库结果为%s， 花费时间为:%s', u'成功' if return_value else u'失败', time.time() - start_time)
 
@@ -251,7 +236,7 @@ class DataHandler(object):
         query_cmd = 'select * from %s' % self.config_name
         query_params = {
             'q': query_cmd,
-            'db': INFLUX_DB_NAME,
+            'db': self.config_name,
             'epoch': 's'
         }
         self.log_logger.debug(u'InfluxDB查询信息: URL=>%s 查询参数=>%s', self.endpoint_url, query_params)
@@ -260,12 +245,12 @@ class DataHandler(object):
         # self.log_logger.debug(u"InfluxDB查询返回数据为:\n%s", pprint.pformat(r.json()['results'][0]['series'][0]['values']))
 
     def create_database(self):
-        create_db_cmd = 'CREATE DATABASE %s' % INFLUX_DB_NAME
+        create_db_cmd = 'CREATE DATABASE %s' % self.config_name
         create_db_params = {
             'q': create_db_cmd
         }
         r = requests.get(self.endpoint_url, params=create_db_params, timeout=5)
-        self.log_logger.debug(u'创建InfluxDB数据库:%s, 结果为%s', INFLUX_DB_NAME, u'成功' if r.status_code == 200 else u'失败')
+        self.log_logger.debug(u'创建InfluxDB数据库:%s, 结果为%s', self.config_name, u'成功' if r.status_code == 200 else u'失败')
 
 
 def main(name=None, border=False, platform=None):

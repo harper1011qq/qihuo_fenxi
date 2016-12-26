@@ -17,7 +17,6 @@ ORG_ALL_SUM_EXCEL = u'全部汇总数据.xlsx'
 ORG_INTERVAL_DATA_EXCEL = u'分段原始数据.xlsx'
 HDL_INTERVAL_BIG_EXCEL = u'分段处理数据.xlsx'
 
-FILE_NAME = 'baicha1.txt'
 CONFIG_NAME = 'config.json'
 TEXT_EXCEL_FILE_NAME = 'temp.file.txt'
 INFLUX_DB_NAME = 'qihuo'
