@@ -57,6 +57,8 @@ ORG_EMPTY_DATA_DICT = {
     'KPAN': list(), 'SPAN': list(), 'ZUIG': list(), 'ZUID': list()
 }
 
+ORG_KEY_LIST = ['KDKD', 'KDKK', 'KDPD', 'PKPK', 'PKKK', 'PKPD', 'PDPD', 'PDKD','PDPK', 'KKKK', 'KKKD', 'KKPK', 'SHSP', 'SHSK', 'XHSP', 'XHSK', 'KPAN', 'SPAN', 'ZUIG', 'ZUID']
+
 NON_ZERO_LIST = ['KPAN', 'SPAN', 'ZUIG', 'ZUID']
 
 EMPTY_CLEAN_PRINTOUT_DICT = {
@@ -122,8 +124,8 @@ def init_interval_empty_dict(data_dict):
     data_dict['ZUID'] = 0
     data_dict['KPAN'] = 0
     data_dict['SPAN'] = 0
-    data_dict['ZUIG'] = 0
-    data_dict['ZUID'] = 0
+    data_dict['ZUIG'] = MIN
+    data_dict['ZUID'] = MAX
     return data_dict
 
 

@@ -12,8 +12,8 @@ import argparse
 import requests
 from prettytable import PrettyTable
 
-from constants import CONFIG_NAME, ORG_EMPTY_DATA_DICT, MIN, MAX, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, get_export_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
+from constants import CONFIG_NAME, MIN, MAX, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
+    get_export_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
     fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time, is_trade_end_time
 from excel_writer import IntervalSumExceTableWriter, IntervalHandledSumExceTableWriter
 
@@ -34,7 +34,6 @@ class DataHandler(object):
         self.config_data = self.cfg_file[name]
         self.date_list = list()
         self.time_list = list()
-        self.all_data_dict = deepcopy(ORG_EMPTY_DATA_DICT)
 
         self.non_filter_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
         self.big_org_dict = deepcopy(fill_order_org_empty_dict(OrderedDict()))
@@ -180,7 +179,7 @@ class DataHandler(object):
             small_kong_sum += small_kong
             if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
                 self.small_hdl_printout_dict['DKB'].append(round(small_duo_kong_bi, 3))
-            print(u'第%s分段数据循环处理完毕，耗时: %s' % (each_loop + 1, time.time() - start_time_1))
+                # print(u'第%s分段数据循环处理完毕，耗时: %s' % (each_loop + 1, time.time() - start_time_1))
 
         print(u'所有数据循环读取完毕，耗时: %s' % (time.time() - start_time_1))
         start_time_4 = time.time()
@@ -236,19 +235,19 @@ class DataHandler(object):
         if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
             self.date_list.append(u'%s' % date_string)
             self.time_list.append(u'%s' % end_time)
-            for key in ORG_EMPTY_DATA_DICT.keys():
+            for key in ORG_EMPTY_DATA_DICT:
                 non_filter_printout_dict[key].append(data_dict[key])
         self.first_record_timestamp = updated_record_timestamp
 
     def org_filter_printout_table_dict(self, filter_printout_dict, data_dict):
         if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-            for key in ORG_EMPTY_DATA_DICT.keys():
+            for key in ORG_EMPTY_DATA_DICT:
                 filter_printout_dict[key].append(data_dict[key])
 
     @staticmethod
     def pack_data_into_dict(each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
-        for key in ORG_EMPTY_DATA_DICT.keys():
+        for key in ORG_EMPTY_DATA_DICT:
             if key == 'ZUIG' or key == 'ZUID' or key == 'KPAN' or key == 'SPAN':
                 data_dict[key].append(each[key])
             else:
@@ -261,25 +260,26 @@ class DataHandler(object):
         query_cmd = 'select * from %s' % self.config_name
         query_params = {
             'q': query_cmd,
-            'db': INFLUX_DB_NAME,
+            'db': self.config_name,
             'epoch': 's'
         }
         self.export_logger.debug(u'InfluxDB查询信息: URL=>%s 查询参数=>%s', self.endpoint_url, query_params)
         r = requests.get(self.endpoint_url, params=query_params, timeout=5)
         self.export_logger.debug(u'InfluxDB查询结果为%s, 所用时间为:%s，', u'成功' if r.status_code == 200 else u'失败', time.time() - start_time)
         # self.export_logger.debug(u"InfluxDB查询返回数据为:\n%s", pprint.pformat(r.json()['results'][0]['series'][0]))
-        key_list = r.json()['results'][0]['series'][0]['columns']
-        value_lists = r.json()['results'][0]['series'][0]['values']
-        for value_list in value_lists:
-            # value_list[0] is the timestamp of each value list. It is an unique value so can be used as a dict key
-            self.datadict[value_list[0]] = dict(zip(key_list, value_list))
+        if r.status_code == 200:
+            key_list = r.json()['results'][0]['series'][0]['columns']
+            value_lists = r.json()['results'][0]['series'][0]['values']
+            for value_list in value_lists:
+                # value_list[0] is the timestamp of each value list. It is an unique value so can be used as a dict key
+                self.datadict[value_list[0]] = dict(zip(key_list, value_list))
 
-        self.first_record_timestamp = deepcopy(value_lists[0][0])
-        self.last_record_timestamp = deepcopy(value_lists[-1][0])
-        self.static_first_record_timestamp = deepcopy(value_lists[0][0])
-        self.export_logger.debug(u"静态起始时间为: %s. 动态起始时间戳为:%s. 结束时间戳为: %s",
-                                 self.static_first_record_timestamp, self.first_record_timestamp, self.last_record_timestamp)
-        self.export_logger.debug(u"生成的字典数据为:\n%s", pprint.pformat(dict(self.datadict)))
+            self.first_record_timestamp = deepcopy(value_lists[0][0])
+            self.last_record_timestamp = deepcopy(value_lists[-1][0])
+            self.static_first_record_timestamp = deepcopy(value_lists[0][0])
+            self.export_logger.debug(u"静态起始时间为: %s. 动态起始时间戳为:%s. 结束时间戳为: %s",
+                                     self.static_first_record_timestamp, self.first_record_timestamp, self.last_record_timestamp)
+            self.export_logger.debug(u"生成的字典数据为:\n%s", pprint.pformat(dict(self.datadict)))
 
 
 def main(interval=None, name=None, border=False, platform=None):

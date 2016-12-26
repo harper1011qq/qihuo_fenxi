@@ -12,7 +12,7 @@ import requests
 from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
-from constants import CONFIG_NAME, get_import_log_handler, ORG_EMPTY_DATA_DICT, fill_order_org_empty_dict, \
+from constants import CONFIG_NAME, get_import_log_handler, ORG_KEY_LIST, fill_order_org_empty_dict, \
     fill_order_org_list_dict, \
     init_interval_empty_dict
 
@@ -32,10 +32,9 @@ class DataHandler(object):
         self.config_data = self.cfg_file[name]
         self.date_list = list()
         self.time_list = list()
-        self.all_data_dict = deepcopy(ORG_EMPTY_DATA_DICT)
         self.each_interval_data = deepcopy(fill_order_org_empty_dict(OrderedDict()))
         self.interval_sum_data_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
-        self.interval_data_dict = OrderedDict()
+        self.interval_datadict = OrderedDict()
 
     def read_config_file(self):
         with open(CONFIG_NAME) as cfg_file:
@@ -141,7 +140,7 @@ class DataHandler(object):
                 self.generate_each_dynamic_data(WEIZ, each)
                 self.insert_into_interval_dict(each)
 
-        # self.log_logger.info(pprint.pformat(dict(self.interval_data_dict)))
+        # self.log_logger.info(pprint.pformat(dict(self.interval_datadict)))
         self.log_logger.debug(u'计算其他动态值所花费时间为：%s', time.time() - start_time)
         # print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
 
@@ -183,31 +182,31 @@ class DataHandler(object):
         tk = self.datadict[each]['SHIJ']
         each_interval_dict = init_interval_empty_dict(OrderedDict())
 
-        if self.interval_data_dict.get(tk):
-            for k in ORG_EMPTY_DATA_DICT.keys():
+        if self.interval_datadict.get(tk):
+            for k in ORG_KEY_LIST:
                 if k == 'ZUIG':
-                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] < self.datadict[each][k] else self.interval_data_dict[tk][k]
-                elif k == 'ZUIG':
-                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] > self.datadict[each][k] else self.interval_data_dict[tk][k]
+                    self.interval_datadict[tk][k] = self.datadict[each]['JIAG'] if self.interval_datadict[tk][k] < self.datadict[each]['JIAG'] else self.interval_datadict[tk][k]
+                elif k == 'ZUID':
+                    self.interval_datadict[tk][k] = self.datadict[each]['JIAG'] if self.interval_datadict[tk][k] > self.datadict[each]['JIAG'] else self.interval_datadict[tk][k]
                 elif k == 'KPAN':
-                    self.interval_data_dict[tk][k] = self.datadict[0][k]
+                    self.interval_datadict[tk][k] = self.datadict[0]['JIAG']
                 elif k == 'SPAN':
-                    self.interval_data_dict[tk][k] = self.datadict[len(self.datadict.keys()) - 1][k]
+                    self.interval_datadict[tk][k] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
                 else:
-                    self.interval_data_dict[tk][k] = self.datadict[each][k] + self.interval_data_dict[tk].get(k, 0)
+                    self.interval_datadict[tk][k] = self.datadict[each][k] + self.interval_datadict[tk].get(k, 0)
         else:
-            for k in ORG_EMPTY_DATA_DICT.keys():
+            for k in ORG_KEY_LIST:
                 if k == 'ZUIG':
-                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] < self.datadict[each][k] else each_interval_dict[k]
-                elif k == 'ZUIG':
-                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] > self.datadict[each][k] else each_interval_dict[k]
+                    each_interval_dict[k] = self.datadict[each]['JIAG'] if each_interval_dict[k] < self.datadict[each]['JIAG'] else each_interval_dict[k]
+                elif k == 'ZUID':
+                    each_interval_dict[k] = self.datadict[each]['JIAG'] if each_interval_dict[k] > self.datadict[each]['JIAG'] else each_interval_dict[k]
                 elif k == 'KPAN':
-                    each_interval_dict[k] = self.datadict[0][k]
+                    each_interval_dict[k] = self.datadict[0]['JIAG']
                 elif k == 'SPAN':
-                    each_interval_dict[k] = self.datadict[len(self.datadict.keys()) - 1][k]
+                    each_interval_dict[k] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
                 else:
                     each_interval_dict[k] = self.datadict[each][k] + each_interval_dict.get(k, 0)
-            self.interval_data_dict[tk] = each_interval_dict
+            self.interval_datadict[tk] = each_interval_dict
 
     @staticmethod
     def get_point_str_data(name, time, data):
@@ -224,7 +223,7 @@ class DataHandler(object):
     def write_data_into_db(self):
         start_time = time.time()
         json_body = list()
-        for (k, v) in self.interval_data_dict.iteritems():
+        for (k, v) in self.interval_datadict.iteritems():
             point_string_data = self.get_point_str_data(self.config_name, int(k), dict(v))
             json_body.append(point_string_data)
         client = InfluxDBClient('localhost', 8086, 'root', 'root', self.config_name)
