@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 import json
-import math
+import platform
 import pprint
 import re
 import time
@@ -13,22 +13,22 @@ import requests
 from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
-from constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, FENZHONG_1, \
+from constants import CONFIG_NAME, get_import_log_handler, ORG_EMPTY_DATA_DICT, FENZHONG_1, \
     INFLUX_DB_NAME, fill_order_org_empty_dict, \
     fill_order_org_list_dict, \
-    reset_dict, is_trade_time, is_trade_end_time, BASIC_INTERVAL
+    is_trade_time, init_interval_empty_dict
 
 
 class DataHandler(object):
-    def __init__(self, name=None, border=False):
+    def __init__(self, name=None, border=False, platform='linux'):
         self.trade_period = 'day'
-        self.log_logger = get_log_handler()
+        self.log_logger = get_import_log_handler()
         self.border = border
         self.datadict = OrderedDict()
         self.static_first_record_timestamp = 0
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
-        self.endpoint_url = 'http://localhost:8086/query'
+        self.endpoint_url = 'http://localhost:8086/query' if platform.lower() == 'linux' else 'http://localhost:4086/query'
         self.config_name = name
         self.cfg_file = self.read_config_file()
         self.config_data = self.cfg_file[name]
@@ -39,16 +39,6 @@ class DataHandler(object):
         self.interval_sum_data_dict = deepcopy(fill_order_org_list_dict(OrderedDict()))
         self.interval_data_dict = OrderedDict()
 
-    @staticmethod
-    def pack_data_into_dict(each, data_dict, filter_range=None):
-        min_range, max_range = filter_range if filter_range else (MIN, MAX)
-        for key in ORG_EMPTY_DATA_DICT.keys():
-            if key == 'ZUIG' or key == 'ZUID' or key == 'KPAN' or key == 'SPAN':
-                data_dict[key].append(each['JIAG'])
-            else:
-                if min_range <= each[key] < max_range:
-                    data_dict[key] += each[key]
-        return data_dict
 
     def read_config_file(self):
         with open(CONFIG_NAME) as cfg_file:
@@ -119,8 +109,7 @@ class DataHandler(object):
         self.static_first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.first_record_timestamp = deepcopy(self.datadict[earliest_record_index_number]['SHIJ'])
         self.last_record_timestamp = deepcopy(self.datadict[0]['SHIJ'])
-        self.trade_period = 'night' if time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp)).split(',')[
-                                           1] == '19:00:00' else 'day'
+        self.trade_period = 'night' if time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp)).split(',')[1] == '19:00:00' else 'day'
 
         # 确定第一个交易位置值
         for each in reversed_keys:
@@ -128,14 +117,12 @@ class DataHandler(object):
                 if self.datadict[each]['JIAG'] > self.datadict[earliest_record_index_number]['JIAG']:
                     # 如果下一条记录的价格比最开始的那条记录的价格大的话. 最开始的那条记录赋值为-1
                     self.datadict[earliest_record_index_number]['WEIZ'] = -1
-                    self.generate_each_dynamic_data(self.datadict[earliest_record_index_number]['WEIZ'],
-                                                    earliest_record_index_number)
+                    self.generate_each_dynamic_data(self.datadict[earliest_record_index_number]['WEIZ'], earliest_record_index_number)
                     break
                 elif self.datadict[each]['JIAG'] < self.datadict[earliest_record_index_number]['JIAG']:
                     # 如果下一条记录的价格比最开始的那条记录的价格小的话. 最开始的那条记录赋值为1
                     self.datadict[earliest_record_index_number]['WEIZ'] = 1
-                    self.generate_each_dynamic_data(self.datadict[earliest_record_index_number]['WEIZ'],
-                                                    earliest_record_index_number)
+                    self.generate_each_dynamic_data(self.datadict[earliest_record_index_number]['WEIZ'], earliest_record_index_number)
                     break
                 else:
                     # 如果下一条记录的价格跟最开始的那条记录的价格一样的话. 忽略，进行下一条记录的比较
@@ -155,9 +142,41 @@ class DataHandler(object):
                     WEIZ = self.datadict[each + 1]['WEIZ']
                 self.datadict[each]['WEIZ'] = WEIZ
                 self.generate_each_dynamic_data(WEIZ, each)
+                self.insert_into_interval_dict(each)
 
+        # self.log_logger.info(pprint.pformat(dict(self.interval_data_dict)))
         self.log_logger.debug(u'计算其他动态值所花费时间为：%s', time.time() - start_time)
         # print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
+
+    def insert_into_interval_dict(self, each):
+        tk = self.datadict[each]['SHIJ']
+        each_interval_dict = init_interval_empty_dict(OrderedDict())
+
+        if self.interval_data_dict.get(tk):
+            for k in ORG_EMPTY_DATA_DICT.keys():
+                if k == 'ZUIG':
+                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] < self.datadict[each][k] else self.interval_data_dict[tk][k]
+                elif k == 'ZUIG':
+                    self.interval_data_dict[tk][k] = self.datadict[each][k] if self.interval_data_dict[tk][k] > self.datadict[each][k] else self.interval_data_dict[tk][k]
+                elif k == 'KPAN':
+                    self.interval_data_dict[tk][k] = self.datadict[0][k]
+                elif k == 'SPAN':
+                    self.interval_data_dict[tk][k] = self.datadict[len(self.datadict.keys()) - 1][k]
+                else:
+                    self.interval_data_dict[tk][k] = self.datadict[each][k] + self.interval_data_dict[tk].get(k, 0)
+        else:
+            for k in ORG_EMPTY_DATA_DICT.keys():
+                if k == 'ZUIG':
+                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] < self.datadict[each][k] else each_interval_dict[k]
+                elif k == 'ZUIG':
+                    each_interval_dict[k] = self.datadict[each][k] if each_interval_dict[k] > self.datadict[each][k] else each_interval_dict[k]
+                elif k == 'KPAN':
+                    each_interval_dict[k] = self.datadict[0][k]
+                elif k == 'SPAN':
+                    each_interval_dict[k] = self.datadict[len(self.datadict.keys()) - 1][k]
+                else:
+                    each_interval_dict[k] = self.datadict[each][k] + each_interval_dict.get(k, 0)
+            self.interval_data_dict[tk] = each_interval_dict
 
     def generate_each_dynamic_data(self, weizhi, each):
         if weizhi == 1:
@@ -193,45 +212,6 @@ class DataHandler(object):
         else:
             self.log_logger.error(u'有问题， 交易位置非1 或 -1')
 
-    def generate_basic_interval_data(self):
-        number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / BASIC_INTERVAL))
-        self.log_logger.debug(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据',
-                              self.cfg_file[self.config_name]['chinese'],
-                              self.cfg_file[self.config_name]['filename'],
-                              BASIC_INTERVAL, number_of_interval)
-        print(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据'
-              % (self.cfg_file[self.config_name]['chinese'],
-                 self.cfg_file[self.config_name]['filename'],
-                 BASIC_INTERVAL, number_of_interval))
-
-        start_time = time.time()
-        for each_loop in range(0, number_of_interval):
-            reset_dict(self.each_interval_data)
-
-            start_time_diff = FENZHONG_1 * int(BASIC_INTERVAL) * each_loop
-            end_time_diff = FENZHONG_1 * int(BASIC_INTERVAL) * (each_loop + 1)
-            loop_dict_values = deepcopy(self.datadict.values())
-            loop_dict_values.reverse()
-            for each_value in loop_dict_values:
-                loop_time_diff = each_value['SHIJ'] - self.static_first_record_timestamp
-                if (start_time_diff <= loop_time_diff <= end_time_diff if is_trade_end_time(
-                        each_value['SHIJ']) else start_time_diff <= loop_time_diff < end_time_diff) \
-                        and is_trade_time(self.trade_period, epoch_time=each_value['SHIJ']):
-                    self.pack_data_into_dict(each_value, self.each_interval_data, filter_range=(MIN, MAX))
-                elif loop_time_diff > end_time_diff:
-                    # 如果当前时间超出最大时间范围则直接跳出。因为每条的时间戳都线性递增的。所以没有必要继续后面的
-                    break
-
-            self.each_interval_data['ZUIG'] = max(self.each_interval_data['ZUIG']) if self.each_interval_data['ZUIG'] else 0
-            self.each_interval_data['ZUID'] = min(self.each_interval_data['ZUID']) if self.each_interval_data['ZUID'] else 0
-            self.each_interval_data['KPAN'] = self.each_interval_data['KPAN'][0] if self.each_interval_data['KPAN'] else 0
-            self.each_interval_data['SPAN'] = self.each_interval_data['SPAN'][len(self.each_interval_data['SPAN']) - 1] if self.each_interval_data[
-                'SPAN'] else 0
-
-            self.interval_data_dict[each_value['SHIJ']] = self.each_interval_data
-
-        self.log_logger.info(u'所有数据循环读取完毕，耗时: %s' % (time.time() - start_time))
-        # self.log_logger.info(pprint.pformat(dict(self.interval_data_dict)))
 
     def converter_data_into_interval_format(self, interval, basic_interval_data_dict, org_data_dict):
         updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
@@ -249,13 +229,22 @@ class DataHandler(object):
         return {
             "measurement": name,
             "time": time,
-            "fields": data
-        }
+            "fields": data}
 
     def load_dynamic_data_into_influxdb(self):
         self.create_database()
         self.write_data_into_db()
         self.query_data_from_db()
+
+    def write_data_into_db(self):
+        start_time = time.time()
+        json_body = list()
+        for (k, v) in self.interval_data_dict.iteritems():
+            point_string_data = self.get_point_str_data(self.config_name, int(k), dict(v))
+            json_body.append(point_string_data)
+        client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
+        return_value = client.write_points(json_body, time_precision='s')
+        self.log_logger.debug(u'写入InfluxDB数据库结果为%s， 花费时间为:%s', u'成功' if return_value else u'失败', time.time() - start_time)
 
     def query_data_from_db(self):
         start_time = time.time()
@@ -263,25 +252,12 @@ class DataHandler(object):
         query_params = {
             'q': query_cmd,
             'db': INFLUX_DB_NAME,
-            'epoch': 'ms'
+            'epoch': 's'
         }
         self.log_logger.debug(u'InfluxDB查询信息: URL=>%s 查询参数=>%s', self.endpoint_url, query_params)
         r = requests.get(self.endpoint_url, params=query_params, timeout=5)
         self.log_logger.debug(u'InfluxDB查询结果为%s, 所用时间为:%s，', u'成功' if r.status_code == 200 else u'失败', time.time() - start_time)
-        self.log_logger.debug(u"InfluxDB查询返回数据为:\n%s",
-                              pprint.pformat(r.json()['results'][0]['series'][0]['values']))
-
-    def write_data_into_db(self):
-        start_time = time.time()
-        json_body = list()
-        for (k, v) in self.interval_data_dict.iteritems():
-            # print k
-            # pprint.pprint(dict(v))
-            point_string_data = self.get_point_str_data(self.config_name, int(k) * 1000, dict(v))
-            json_body.append(point_string_data)
-        client = InfluxDBClient('localhost', 8086, 'root', 'root', INFLUX_DB_NAME)
-        return_value = client.write_points(json_body, time_precision='ms')
-        self.log_logger.debug(u'写入InfluxDB数据库结果为%s， 花费时间为:%s', u'成功' if return_value else u'失败', time.time() - start_time)
+        # self.log_logger.debug(u"InfluxDB查询返回数据为:\n%s", pprint.pformat(r.json()['results'][0]['series'][0]['values']))
 
     def create_database(self):
         create_db_cmd = 'CREATE DATABASE %s' % INFLUX_DB_NAME
@@ -292,11 +268,10 @@ class DataHandler(object):
         self.log_logger.debug(u'创建InfluxDB数据库:%s, 结果为%s', INFLUX_DB_NAME, u'成功' if r.status_code == 200 else u'失败')
 
 
-def main(name=None, border=False):
-    data_handler = DataHandler(name=name, border=border)
+def main(name=None, border=False, platform=None):
+    data_handler = DataHandler(name=name, border=border, platform=platform)
     data_handler.read_file()
     data_handler.generate_dynamic_data()
-    data_handler.generate_basic_interval_data()
     data_handler.load_dynamic_data_into_influxdb()
 
 
@@ -307,4 +282,4 @@ if __name__ == '__main__':
     parser.add_argument('--border', default=False, action='store_true', help=u'是否显示表格边框，默认为不显示。')
     args = parser.parse_args()
 
-    main(name=args.name, border=True)
+    main(name=args.name, border=True, platform=platform.system())

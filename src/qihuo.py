@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # coding=utf-8
-import argparse
 import json
 import math
 import pprint
@@ -9,22 +8,21 @@ import time
 from collections import OrderedDict
 from copy import deepcopy
 
+import argparse
 import requests
 from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
-from constants import CONFIG_NAME, get_log_handler, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
-    INFLUX_DB_NAME, get_hdl_data_handler, get_org_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
-    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time, is_trade_end_time
+from constants import CONFIG_NAME, ORG_EMPTY_DATA_DICT, MIN, MAX, TEXT_EXCEL_FILE_NAME, ORG_KEY_CHN_TITLE_DICT, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
+    INFLUX_DB_NAME, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
+    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time, is_trade_end_time, get_old_logger_handler
 from excel_writer import AllSumExceTableWriter, AllDetailExcelTableWriter, IntervalSumExceTableWriter, IntervalHandledSumExceTableWriter
 
 
 class DataHandler(object):
     def __init__(self, name=None, border=False):
         self.trade_period = 'day'
-        self.log_logger = get_log_handler()
-        self.org_data_logger = get_org_data_handler()
-        self.hdl_data_logger = get_hdl_data_handler()
+        self.log_logger = get_old_logger_handler()
         self.border = border
         self.datadict = OrderedDict()
         self.static_first_record_timestamp = 0
@@ -234,17 +232,15 @@ class DataHandler(object):
         self.all_data_dict['ZUID'] = min(self.all_data_dict['ZUID'])
         self.all_data_dict['KPAN'] = self.datadict[len(self.datadict.keys()) - 1]['JIAG']
         self.all_data_dict['SPAN'] = self.datadict[0]['JIAG']
-        avg_kaiguo_chengben = kaiduo_chengben / kaiduo_zonghe
-        avg_pingduo_chengben = pingduo_chengben / pingduo_zonghe
 
         all_sum_table = PrettyTable(padding_width=1, border=self.border)
         all_sum_table.align = 'l'
         for (k, v) in self.all_data_dict.iteritems():
             all_sum_table.add_column(ALL_KEY_CHN_TITLE_DICT[k], [v])
-        self.hdl_data_logger.info(u'\"%s\"的汇总数据为:(数据源:%s)\n %s',
-                                  self.cfg_file[self.config_name]['chinese'],
-                                  self.cfg_file[self.config_name]['filename'],
-                                  all_sum_table)
+        self.log_logger.info(u'\"%s\"的汇总数据为:(数据源:%s)\n %s',
+                             self.cfg_file[self.config_name]['chinese'],
+                             self.cfg_file[self.config_name]['filename'],
+                             all_sum_table)
         print(u'\"%s\"的汇总数据为:(数据源:%s)\n %s' %
               (self.cfg_file[self.config_name]['chinese'],
                self.cfg_file[self.config_name]['filename'],
@@ -262,10 +258,10 @@ class DataHandler(object):
         small_duo_sum = 0
         small_kong_sum = 0
         number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
-        self.org_data_logger.debug(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据',
-                                   self.cfg_file[self.config_name]['chinese'],
-                                   self.cfg_file[self.config_name]['filename'],
-                                   interval, number_of_interval)
+        self.log_logger.debug(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据',
+                              self.cfg_file[self.config_name]['chinese'],
+                              self.cfg_file[self.config_name]['filename'],
+                              interval, number_of_interval)
         print(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据'
               % (self.cfg_file[self.config_name]['chinese'],
                  self.cfg_file[self.config_name]['filename'],
@@ -367,17 +363,17 @@ class DataHandler(object):
         print(u'所有数据循环读取完毕，耗时: %s' % (time.time() - start_time_1))
         start_time_4 = time.time()
         # 打印原始数据表格
-        self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.org_data_logger)
-        self.print_generated_table(interval, self.big_org_printout_dict, u'大单', self.org_data_logger)
-        self.print_generated_table(interval, self.middle_org_printout_dict, u'小单', self.org_data_logger)
-        self.print_generated_table(interval, self.small_org_printout_dict, u'其他', self.org_data_logger)
+        self.print_generated_table(interval, self.non_filter_org_print_dict, u'无过滤', self.log_logger)
+        self.print_generated_table(interval, self.big_org_printout_dict, u'大单', self.log_logger)
+        self.print_generated_table(interval, self.middle_org_printout_dict, u'小单', self.log_logger)
+        self.print_generated_table(interval, self.small_org_printout_dict, u'其他', self.log_logger)
         print(u'打印原始数据表格完毕。 耗时:%s' % (time.time() - start_time_4))
         start_time_5 = time.time()
         # 打印处理过的数据表格
-        self.print_generated_table(interval, self.non_filter_hdl_printout_dict, u'无过滤', self.hdl_data_logger)
-        self.print_generated_table(interval, self.big_hdl_printout_dict, u'大单', self.hdl_data_logger)
-        self.print_generated_table(interval, self.middle_hdl_printout_dict, u'小单', self.hdl_data_logger)
-        self.print_generated_table(interval, self.small_hdl_printout_dict, u'其他', self.hdl_data_logger)
+        self.print_generated_table(interval, self.non_filter_hdl_printout_dict, u'无过滤', self.log_logger)
+        self.print_generated_table(interval, self.big_hdl_printout_dict, u'大单', self.log_logger)
+        self.print_generated_table(interval, self.middle_hdl_printout_dict, u'小单', self.log_logger)
+        self.print_generated_table(interval, self.small_hdl_printout_dict, u'其他', self.log_logger)
         print(u'打印原始数据表格完毕。 耗时:%s' % (time.time() - start_time_5))
         start_time_6 = time.time()
         # 打印原始数据到Excel文件
@@ -488,7 +484,7 @@ def main(interval=None, name=None, border=False):
     data_handler = DataHandler(name=name, border=border)
     data_handler.read_file()
     data_handler.generate_dynamic_data()
-    # data_handler.load_dynamic_data_into_influxdb()
+    # data_handler.load_dynamic_data_from_influxdb()
     # data_handler.print_to_file()
     # data_handler.print_as_text()
     data_handler.print_all_sum()

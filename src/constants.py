@@ -7,9 +7,10 @@ import sys
 
 import time
 
-LOG_FILE = u'日志文件.log'
-ORG_LOG_FILE = u'原始.log'
-HDL_LOG_FILE = u'处理.log'
+IMPORT_LOG_FILE = u'导入日志.log'
+EXPORT_LOG_FILE = u'导出日志.log'
+
+OLD_LOG_FILE = u'旧版日志.log'
 
 ORG_ALL_DETAIL_EXCEL = u'全部详细数据.xlsx'
 ORG_ALL_SUM_EXCEL = u'全部汇总数据.xlsx'
@@ -30,7 +31,6 @@ FENZHONG_1 = 60
 FENZHONG_5 = 5 * FENZHONG_1
 FENZHONG_15 = 15 * FENZHONG_1
 FENZHONG_30 = 30 * FENZHONG_1
-
 
 BASIC_INTERVAL = 1
 
@@ -69,8 +69,8 @@ EMPTY_CLEAN_PRINTOUT_INTERVAL_DICT = {
 }
 
 
-def get_log_handler():
-    log_handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1024 * 1024)
+def get_import_log_handler():
+    log_handler = logging.handlers.RotatingFileHandler(IMPORT_LOG_FILE, maxBytes=1024 * 1024)
     fmt = '%(asctime)s - %(filename)s:%(lineno)s - %(message)s'
     formatter = logging.Formatter(fmt)
     log_handler.setFormatter(formatter)
@@ -80,8 +80,8 @@ def get_log_handler():
     return logger
 
 
-def get_org_data_handler():
-    log_handler = logging.handlers.RotatingFileHandler(ORG_LOG_FILE, maxBytes=1024 * 1024)
+def get_export_data_handler():
+    log_handler = logging.handlers.RotatingFileHandler(EXPORT_LOG_FILE, maxBytes=1024 * 1024)
     fmt = '%(asctime)s - %(filename)s:%(lineno)s - %(message)s'
     formatter = logging.Formatter(fmt)
     log_handler.setFormatter(formatter)
@@ -91,15 +91,41 @@ def get_org_data_handler():
     return logger
 
 
-def get_hdl_data_handler():
-    log_handler = logging.handlers.RotatingFileHandler(HDL_LOG_FILE, maxBytes=1024 * 1024)
+def get_old_logger_handler():
+    log_handler = logging.handlers.RotatingFileHandler(OLD_LOG_FILE, maxBytes=1024 * 1024)
     fmt = '%(asctime)s - %(filename)s:%(lineno)s - %(message)s'
     formatter = logging.Formatter(fmt)
     log_handler.setFormatter(formatter)
-    logger = logging.getLogger('hdl')
+    logger = logging.getLogger('org')
     logger.addHandler(log_handler)
     logger.setLevel(logging.DEBUG)
     return logger
+
+
+def init_interval_empty_dict(data_dict):
+    data_dict['KDKD'] = 0
+    data_dict['KDKK'] = 0
+    data_dict['KDPD'] = 0
+    data_dict['PDPD'] = 0
+    data_dict['PDPK'] = 0
+    data_dict['PDKD'] = 0
+    data_dict['KKKK'] = 0
+    data_dict['KKKD'] = 0
+    data_dict['KKPK'] = 0
+    data_dict['PKPK'] = 0
+    data_dict['PKKK'] = 0
+    data_dict['PKPD'] = 0
+    data_dict['SHSK'] = 0
+    data_dict['SHSP'] = 0
+    data_dict['XHSK'] = 0
+    data_dict['XHSP'] = 0
+    data_dict['ZUIG'] = 0
+    data_dict['ZUID'] = 0
+    data_dict['KPAN'] = 0
+    data_dict['SPAN'] = 0
+    data_dict['ZUIG'] = 0
+    data_dict['ZUID'] = 0
+    return data_dict
 
 
 def fill_order_org_empty_dict(data_dict):
