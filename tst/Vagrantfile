@@ -10,7 +10,7 @@ sudo /vagrant_data/add_yum_repo.sh
 sudo yum -y install epel-release
 sudo yum -y install python python-pip git wget python-devel openssl-devel gcc gcc-c++ java-1.8.0-openjdk-devel java-1.8.0-openjdk influxdb
 sudo pip install --upgrade pip
-sudo pip install requests
+sudo pip install requests influxdb prettytable xlsxwriter
 
 
 sudo nmcli connection reload
