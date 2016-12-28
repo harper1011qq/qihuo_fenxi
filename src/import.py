@@ -61,13 +61,13 @@ class DataHandler(object):
                     time_format = time.strptime(record_time, pattern)
                     epech_time = time.mktime(time_format)
                     self.datadict[index] = {
-                        'SHIJ': epech_time,  # 时间
-                        'JIAG': float(data_elements[2]) if data_elements[2] else 0,  # 价格
+                        'SHIJ': int(epech_time),  # 时间
+                        'JIAG': int(data_elements[2]) if data_elements[2] else 0,  # 价格
                         'CJL': int(data_elements[3]) if data_elements[3] else 0,  # 成交量
                         'CJE': int(data_elements[4]) if data_elements[4] else 0,  # 成交额
                         'CANGL': int(data_elements[5]) if data_elements[5] else 0,  # 仓量
                         'KAIC': float(data_elements[9]) if data_elements[9] else 0,  # 开仓
-                        'PINGC': float(data_elements[10] if data_elements[10] else 0),  # 平仓
+                        'PINGC': int(data_elements[10] if data_elements[10] else 0),  # 平仓
                         # 'FANGX': data_elements[11].strip() if data_elements[11] else 0,  # 方向
                         'FANGX': 'fangxiang',  # 方向
                         'WEIZ': 0,  # 交易位置
@@ -90,7 +90,7 @@ class DataHandler(object):
                         'KPAN': 0,  # 开盘价
                         'SPAN': 0,  # 收盘价
                         'ZUIG': 0,  # 最高价
-                        'ZUID': 0.  # 最低价
+                        'ZUID': 0  # 最低价
                     }
                 else:
                     break
@@ -212,10 +212,13 @@ class DataHandler(object):
 
     @staticmethod
     def get_point_str_data(name, time, data):
+        new_data_dict = dict()
+        for (k, v) in data.iteritems():
+            new_data_dict[k] = float(v)
         return {
             "measurement": name,
             "time": time,
-            "fields": data}
+            "fields": new_data_dict}
 
     def load_dynamic_data_into_influxdb(self):
         self.create_database()
