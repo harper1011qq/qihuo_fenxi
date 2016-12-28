@@ -1,14 +1,24 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 $script = <<SCRIPT
-### Installing depedencies...
-### set http_proxy=http://10.144.1.10:8080; set https_proxy=https://10.144.1.10:8080
+
+
+# China CentOS repo
+# sudo mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+# sudo cp /vagrant_data/tst/CentOS7-Base.repo /etc/yum.repos.d/CentOS-Base.rep
+sudo yum clean all
+sudo yum makecache
 
 # config InfluxDB repo
-sudo /vagrant_data/add_yum_repo.sh
+sudo /vagrant_data/tst/add_yum_repo.sh
+
+sudo rm -f /var/lib/rpm/__*
+sudo rpm --rebuilddb -v -v
 
 sudo yum -y install epel-release
-sudo yum -y install python python-pip git wget python-devel openssl-devel gcc gcc-c++ java-1.8.0-openjdk-devel java-1.8.0-openjdk influxdb
+sudo yum -y install python python-pip git wget python-devel openssl-devel gcc gcc-c++ java-1.8.0-openjdk-devel java-1.8.0-openjdk influxdb fontconfig freetype* urw-fonts
+
+sudo yum -y install https://grafanarel.s3.amazonaws.com/builds/grafana-4.0.2-1481203731.x86_64.rpm
 sudo pip install --upgrade pip
 sudo pip install requests influxdb prettytable xlsxwriter
 
@@ -18,8 +28,9 @@ sudo systemctl restart network.service
 
 sudo systemctl enable influxdb.service
 sudo systemctl daemon-reload
-sudo cp /vagrant_data/influxdb.conf /etc/influxdb/
+sudo cp /vagrant_data/tst/influxdb.conf /etc/influxdb/
 sudo systemctl restart influxdb.service
+sudo systemctl restart grafana-server
 
 
 
@@ -30,14 +41,12 @@ SCRIPT
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-    config.proxy.http  = "http://10.144.1.10:8080"
-    config.proxy.https = "http://10.144.1.10:8080"
-    config.proxy.no_proxy = "localhost, 127.0.0.1"
-		
+	
 		config.vm.network :forwarded_port, guest: 8086, host: 4086
 		config.vm.network :forwarded_port, guest: 8083, host: 4083
+		config.vm.network :forwarded_port, guest: 3000, host: 3000
     config.vm.box = "boxcutter/centos73"
-    config.vm.synced_folder "E:/code/personal", "/vagrant_data"
+    config.vm.synced_folder "C:/Users/LaoJiao/VirtualBox VMs/QH", "/vagrant_data"
     config.vm.provision "shell", inline: $script
     
     config.vm.define "laojiao" do |laojiao|

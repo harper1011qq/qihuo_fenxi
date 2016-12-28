@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 import json
+import os
 import platform
 import re
 import time
@@ -27,6 +28,7 @@ class DataHandler(object):
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
         self.endpoint_url = 'http://localhost:8086/query' if platform.lower() == 'linux' else 'http://localhost:4086/query'
+        self.folder_path = os.path.abspath(os.path.dirname(__file__)) + '/'
         self.config_name = name
         self.cfg_file = self.read_config_file()
         self.config_data = self.cfg_file[name]
@@ -37,7 +39,7 @@ class DataHandler(object):
         self.interval_datadict = OrderedDict()
 
     def read_config_file(self):
-        with open(CONFIG_NAME) as cfg_file:
+        with open(self.folder_path + CONFIG_NAME) as cfg_file:
             file_data = json.load(cfg_file, encoding='utf-8')
         cfg_print_tbl = PrettyTable(['变量名', '数值'])
         for (k, v) in file_data[self.config_name].iteritems():
@@ -49,7 +51,7 @@ class DataHandler(object):
     def read_file(self):
         start_time = time.time()
         index = 0
-        with open('%s' % self.cfg_file[self.config_name]['filename'], 'r') as data_file:
+        with open(self.folder_path + self.cfg_file[self.config_name]['filename'], 'r') as data_file:
             while True:
                 line = data_file.readline()
                 if line:
@@ -60,12 +62,12 @@ class DataHandler(object):
                     epech_time = time.mktime(time_format)
                     self.datadict[index] = {
                         'SHIJ': epech_time,  # 时间
-                        'JIAG': int(data_elements[2]) if data_elements[2] else 0,  # 价格
+                        'JIAG': float(data_elements[2]) if data_elements[2] else 0,  # 价格
                         'CJL': int(data_elements[3]) if data_elements[3] else 0,  # 成交量
                         'CJE': int(data_elements[4]) if data_elements[4] else 0,  # 成交额
                         'CANGL': int(data_elements[5]) if data_elements[5] else 0,  # 仓量
-                        'KAIC': int(data_elements[9]) if data_elements[9] else 0,  # 开仓
-                        'PINGC': int(data_elements[10] if data_elements[10] else 0),  # 平仓
+                        'KAIC': float(data_elements[9]) if data_elements[9] else 0,  # 开仓
+                        'PINGC': float(data_elements[10] if data_elements[10] else 0),  # 平仓
                         # 'FANGX': data_elements[11].strip() if data_elements[11] else 0,  # 方向
                         'FANGX': 'fangxiang',  # 方向
                         'WEIZ': 0,  # 交易位置
