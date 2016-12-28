@@ -14,15 +14,17 @@ from prettytable import PrettyTable
 
 from constants import CONFIG_NAME, MIN, MAX, ALL_KEY_CHN_TITLE_DICT, FENZHONG_1, \
     get_export_data_handler, ORG_INTERVAL_DATA_EXCEL, HDL_INTERVAL_BIG_EXCEL, fill_order_org_empty_dict, fill_order_org_list_dict, \
-    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time, is_trade_end_time
+    fill_order_hdl_empty_dict, fill_order_hdl_list_dict, reset_dict, is_trade_time, is_trade_end_time, ORG_KEY_LIST
 from excel_writer import IntervalSumExceTableWriter, IntervalHandledSumExceTableWriter
 
 
 class DataHandler(object):
-    def __init__(self, name=None, border=False, platform='linux'):
+    def __init__(self, logger=None, name=None, border=False, platform='linux', start=None, end=None):
         self.platform = platform.lower()
+        self.start_time = time.mktime(time.strptime(start, '%Y-%m-%dT%H:%MZ')) if start else None
+        self.end_time = time.mktime(time.strptime(end, '%Y-%m-%dT%H:%MZ')) if end else None
         self.trade_period = 'day'
-        self.export_logger = get_export_data_handler()
+        self.export_logger = logger if logger else get_export_data_handler()
         self.border = border
         self.datadict = OrderedDict()
         self.static_first_record_timestamp = 0
@@ -74,7 +76,10 @@ class DataHandler(object):
         middle_kong_sum = 0
         small_duo_sum = 0
         small_kong_sum = 0
-        number_of_interval = int(math.ceil((self.last_record_timestamp - self.first_record_timestamp) / 60 / interval))
+
+        last_record_timestamp = self.last_record_timestamp if not self.end_time else min(self.end_time, self.last_record_timestamp)
+        first_record_timestamp = self.first_record_timestamp if not self.start_time else max(self.start_time, self.first_record_timestamp)
+        number_of_interval = int(math.ceil((last_record_timestamp - first_record_timestamp) / 60 / interval))
         self.export_logger.debug(u'对\"%s\"的所有数据(数据源:%s)进行按照%s分钟的间隔，共被分割为%s段的数据',
                                  self.cfg_file[self.config_name]['chinese'],
                                  self.cfg_file[self.config_name]['filename'],
@@ -98,16 +103,17 @@ class DataHandler(object):
             start_time_diff = FENZHONG_1 * int(interval) * each_loop
             end_time_diff = FENZHONG_1 * int(interval) * (each_loop + 1)
             loop_dict_values = deepcopy(self.datadict.values())
-            # pprint.pprint(loop_dict_values)
             for each_value in loop_dict_values:
                 loop_time_diff = each_value['time'] - self.static_first_record_timestamp
-                self.export_logger.error('%s, %s, %s, %s, %s', start_time_diff, loop_time_diff, end_time_diff, each_value['time'], self.static_first_record_timestamp)
+                # self.export_logger.error('%s, %s, %s, %s, %s', start_time_diff, loop_time_diff, end_time_diff, each_value['time'], self.static_first_record_timestamp)
                 if is_trade_end_time(each_value['time']):  # 将每段交易结束时间的数据合并到上一段的数据里面
                     in_this_interval = start_time_diff <= loop_time_diff <= end_time_diff
                 else:
                     in_this_interval = start_time_diff <= loop_time_diff < end_time_diff
+                is_start_time = each_value['time'] >= self.start_time if self.start_time else True
+                is_end_time = each_value['time'] <= self.end_time if self.end_time else True
 
-                if in_this_interval and is_trade_time(self.trade_period, epoch_time=each_value['time']):
+                if is_start_time and is_end_time and in_this_interval and is_trade_time(self.trade_period, epoch_time=each_value['time']):
                     # 无过滤条件
                     self.pack_data_into_dict(each_value, self.non_filter_org_dict, filter_range=(MIN, MAX))
                     # 大单
@@ -153,7 +159,11 @@ class DataHandler(object):
             non_filter_duo_kong_bi = float(non_filter_duo) / non_filter_kong if non_filter_kong != 0 else 0
             non_filter_duo_sum += non_filter_duo
             non_filter_kong_sum += non_filter_kong
-            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            epoch_to_string_time = time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))
+            is_start_time = self.first_record_timestamp >= self.start_time if self.start_time else True
+            is_end_time = self.first_record_timestamp <= self.end_time if self.end_time else True
+
+            if is_start_time and is_end_time and is_trade_time(self.trade_period, string_time=epoch_to_string_time):
                 self.non_filter_hdl_printout_dict['DKB'].append(round(non_filter_duo_kong_bi, 3))
 
             big_duo = self.big_org_dict['KDKD'] + self.big_org_dict['SHSK'] + self.big_org_dict['PKPK']
@@ -161,7 +171,7 @@ class DataHandler(object):
             big_duo_kong_bi = float(big_duo) / big_kong if big_kong != 0 else 0
             big_duo_sum += big_duo
             big_kong_sum += big_kong
-            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_start_time and is_end_time and is_trade_time(self.trade_period, string_time=epoch_to_string_time):
                 self.big_hdl_printout_dict['DKB'].append(round(big_duo_kong_bi, 3))
 
             middle_duo = self.middle_org_dict['KDKD'] + self.middle_org_dict['SHSK'] + self.middle_org_dict['PKPK']
@@ -169,7 +179,7 @@ class DataHandler(object):
             middle_duo_kong_bi = float(middle_duo) / middle_kong if middle_kong != 0 else 0
             middle_duo_sum += middle_duo
             middle_kong_sum += middle_kong
-            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_start_time and is_end_time and is_trade_time(self.trade_period, string_time=epoch_to_string_time):
                 self.middle_hdl_printout_dict['DKB'].append(round(middle_duo_kong_bi, 3))
 
             small_duo = self.small_org_dict['KDKD'] + self.small_org_dict['SHSK'] + self.small_org_dict['PKPK']
@@ -177,10 +187,11 @@ class DataHandler(object):
             small_duo_kong_bi = float(small_duo) / small_kong if small_kong != 0 else 0
             small_duo_sum += small_duo
             small_kong_sum += small_kong
-            if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+            if is_start_time and is_end_time and is_trade_time(self.trade_period, string_time=epoch_to_string_time):
                 self.small_hdl_printout_dict['DKB'].append(round(small_duo_kong_bi, 3))
-                # print(u'第%s分段数据循环处理完毕，耗时: %s' % (each_loop + 1, time.time() - start_time_1))
 
+            # 在循环内最后一步更新first_record_timestamp 时间戳
+            self.first_record_timestamp += FENZHONG_1 * int(interval)
         print(u'所有数据循环读取完毕，耗时: %s' % (time.time() - start_time_1))
         start_time_4 = time.time()
         # 打印原始数据表格
@@ -232,22 +243,29 @@ class DataHandler(object):
         updated_record_timestamp = self.first_record_timestamp + FENZHONG_1 * int(interval)
         date_string = time.strftime('%Y-%m-%d', time.localtime(self.first_record_timestamp))
         end_time = time.strftime('%H:%M', time.localtime(updated_record_timestamp))
-        if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
+        epoch_to_string_time = time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))
+
+        is_start_time = self.first_record_timestamp >= self.start_time if self.start_time else True
+        is_end_time = self.first_record_timestamp <= self.end_time if self.end_time else True
+
+        if is_start_time and is_end_time and is_trade_time(self.trade_period, string_time=epoch_to_string_time):
             self.date_list.append(u'%s' % date_string)
             self.time_list.append(u'%s' % end_time)
-            for key in ORG_EMPTY_DATA_DICT:
+            for key in ORG_KEY_LIST:
                 non_filter_printout_dict[key].append(data_dict[key])
-        self.first_record_timestamp = updated_record_timestamp
 
     def org_filter_printout_table_dict(self, filter_printout_dict, data_dict):
-        if is_trade_time(self.trade_period, string_time=time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))):
-            for key in ORG_EMPTY_DATA_DICT:
+        epoch_to_string_time = time.strftime('%Y-%m-%d,%H:%M:%S', time.localtime(self.first_record_timestamp))
+        is_start_time = self.first_record_timestamp >= self.start_time if self.start_time else True
+        is_end_time = self.first_record_timestamp <= self.end_time if self.end_time else True
+        if is_start_time and is_end_time and is_trade_time(self.trade_period, string_time=epoch_to_string_time):
+            for key in ORG_KEY_LIST:
                 filter_printout_dict[key].append(data_dict[key])
 
     @staticmethod
     def pack_data_into_dict(each, data_dict, filter_range=None):
         min_range, max_range = filter_range if filter_range else (MIN, MAX)
-        for key in ORG_EMPTY_DATA_DICT:
+        for key in ORG_KEY_LIST:
             if key == 'ZUIG' or key == 'ZUID' or key == 'KPAN' or key == 'SPAN':
                 data_dict[key].append(each[key])
             else:
@@ -279,20 +297,24 @@ class DataHandler(object):
             self.static_first_record_timestamp = deepcopy(value_lists[0][0])
             self.export_logger.debug(u"静态起始时间为: %s. 动态起始时间戳为:%s. 结束时间戳为: %s",
                                      self.static_first_record_timestamp, self.first_record_timestamp, self.last_record_timestamp)
-            self.export_logger.debug(u"生成的字典数据为:\n%s", pprint.pformat(dict(self.datadict)))
-
-
-def main(interval=None, name=None, border=False, platform=None):
-    data_handler = DataHandler(name=name, border=border, platform=platform)
-    data_handler.load_dynamic_data_from_influxdb()
-    data_handler.print_interval_sum_tbls(interval)
+            # self.export_logger.debug(u"生成的字典数据为:\n%s", pprint.pformat(dict(self.datadict)))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--interval', default=30, help=u'间隔时间，时间单位为分钟。')
+    parser.add_argument('-i', '--interval', default=30, type=int, help=u'间隔时间，时间单位为分钟。')
     parser.add_argument('-n', '--name', help=u'配置信息名称', required=True)
     parser.add_argument('--border', default=False, action='store_true', help=u'是否显示表格边框，默认为不显示。')
+    parser.add_argument('--start', help=u'起始时间。')
+    parser.add_argument('--end', help=u'结束时间。')
     args = parser.parse_args()
 
-    main(interval=int(args.interval), name=args.name, border=True, platform=platform.system())
+    logger = get_export_data_handler()
+
+    try:
+        data_handler = DataHandler(logger=logger, name=args.name, border=True, platform=platform.system(), start=args.start, end=args.end)
+        data_handler.load_dynamic_data_from_influxdb()
+        data_handler.print_interval_sum_tbls(args.interval)
+    except Exception as e:
+        print(u'运行错误.错误信息为: %s' % str(e))
+        logger.exception(u'运行错误.错误信息为: %s', str(e))
