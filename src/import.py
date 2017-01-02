@@ -3,7 +3,7 @@
 import json
 import os
 import platform
-import re
+import pprint
 import time
 from collections import OrderedDict
 from copy import deepcopy
@@ -27,6 +27,7 @@ class DataHandler(object):
         self.static_first_record_timestamp = 0
         self.first_record_timestamp = 0
         self.last_record_timestamp = 0
+        self.db_port = '8086' if platform.lower() == 'linux' else '4086'
         self.endpoint_url = 'http://localhost:8086/query' if platform.lower() == 'linux' else 'http://localhost:4086/query'
         self.folder_path = os.path.abspath(os.path.dirname(__file__)) + '/'
         self.config_name = name
@@ -54,8 +55,6 @@ class DataHandler(object):
         with open(self.folder_path + self.cfg_file[self.config_name]['filename'], 'r') as data_file:
             for line in data_file.readlines():
                 try:
-                    if index % 100000 == 0:
-                        print(u'成功处理 十万条 数据。')
                     data_elements = line.strip(' ').split('\t')
                     record_time = (str(data_elements[1]) + ',' + str(data_elements[0]))
                     pattern = '%Y%m%d,%H:%M'
@@ -94,9 +93,10 @@ class DataHandler(object):
                         'ZUID': 0  # 最低价
                     }
                 except Exception as e:
-                    print line
-                    print e
-            index += 1
+                    self.log_logger.info(u'问题行原始数据为: %r', line)
+                    self.log_logger.exception(e)
+                index += 1
+            print(u'读取文件花费时间为：%s' % (time.time() - start_time))
             self.log_logger.info(u'读取文件花费时间为：%s', time.time() - start_time)
 
     def generate_dynamic_data(self):  # 根据价格计算方向
@@ -128,10 +128,14 @@ class DataHandler(object):
                     # 如果下一条记录的价格跟最开始的那条记录的价格一样的话. 忽略，进行下一条记录的比较
                     pass
         # print(u'确定第一个交易位置值花费时间为：%s' % (time.time() - start_time))
-        self.log_logger.debug(u'确定第一个交易位置值花费时间为：%s', time.time() - start_time)
+        self.log_logger.debug(u'确定第一个交易位置值花费时间为：%s, 第一个交易位置值为: %s', time.time() - start_time, self.datadict[earliest_record_index_number]['WEIZ'])
 
         for each in reversed_keys:
-            if self.datadict[each]['WEIZ'] == 0:
+            current_idx = each + 1 - len(reversed_keys)
+            if current_idx % 10000 == 0 and current_idx / 10000 > 0:
+                print(u'成功处理 一万条 数据。总花费时间为: %s' % (time.time() - start_time))
+                self.log_logger.info(u'成功处理 一万条 数据。总花费时间为: %s', (time.time() - start_time))
+            if self.datadict[each]['WEIZ'] == 0 and self.datadict.get(each + 1):
                 current_price = self.datadict[each]['JIAG']
                 previous_price = self.datadict[each + 1]['JIAG']
                 if int(current_price) - int(previous_price) > 0:
@@ -180,7 +184,9 @@ class DataHandler(object):
                 self.datadict[each]['XHSP'] = self.datadict[each]['PINGC']
                 self.datadict[each]['XHSK'] = self.datadict[each]['KAIC']
         else:
-            self.log_logger.error(u'有问题， 交易位置非1 或 -1')
+            self.log_logger.error(u'索引值: %s有问题， 交易位置非1 或 -1', each)
+            self.log_logger.error(u'问题行详细信息为: %s', pprint.pformat(dict(self.datadict[each])))
+            self.log_logger.error(u'问题前一行详细信息为: %s', pprint.pformat(dict(self.datadict[each + 1])))
 
     def insert_into_interval_dict(self, each):
         tk = self.datadict[each]['SHIJ']
@@ -233,7 +239,7 @@ class DataHandler(object):
         for (k, v) in self.interval_datadict.iteritems():
             point_string_data = self.get_point_str_data(self.config_name, int(k), dict(v))
             json_body.append(point_string_data)
-        client = InfluxDBClient('localhost', 8086, 'root', 'root', self.config_name)
+        client = InfluxDBClient('localhost', self.db_port, 'root', 'root', self.config_name)
         return_value = client.write_points(json_body, time_precision='s')
         self.log_logger.debug(u'写入InfluxDB数据库结果为%s， 花费时间为:%s', u'成功' if return_value else u'失败', time.time() - start_time)
 
