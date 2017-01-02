@@ -7,7 +7,19 @@
   },
   "cuiya": {
     "chinese": "翠芽",
-    "filename": "翠芽.txt",
+    "filename": "翠芽全.txt",
+    "big": 500,
+    "small": 100
+  },
+  "xialajiao": {
+    "chinese": "虾辣椒",
+    "filename": "虾辣椒全.txt",
+    "big": 500,
+    "small": 100
+  },
+  "heimuer": {
+    "chinese": "黑木耳",
+    "filename": "黑木耳全.txt",
     "big": 500,
     "small": 100
   },

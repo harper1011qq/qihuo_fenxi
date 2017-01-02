@@ -55,43 +55,47 @@ class DataHandler(object):
             while True:
                 line = data_file.readline()
                 if line:
-                    data_elements = re.split(' |\t', line)
-                    record_time = (str(data_elements[1]) + ',' + str(data_elements[0]))
-                    pattern = '%Y%m%d,%H:%M'
-                    time_format = time.strptime(record_time, pattern)
-                    epech_time = time.mktime(time_format)
-                    self.datadict[index] = {
-                        'SHIJ': int(epech_time),  # 时间
-                        'JIAG': int(data_elements[2]) if data_elements[2] else 0,  # 价格
-                        'CJL': int(data_elements[3]) if data_elements[3] else 0,  # 成交量
-                        'CJE': int(data_elements[4]) if data_elements[4] else 0,  # 成交额
-                        'CANGL': int(data_elements[5]) if data_elements[5] else 0,  # 仓量
-                        'KAIC': float(data_elements[9]) if data_elements[9] else 0,  # 开仓
-                        'PINGC': int(data_elements[10] if data_elements[10] else 0),  # 平仓
-                        # 'FANGX': data_elements[11].strip() if data_elements[11] else 0,  # 方向
-                        'FANGX': 'fangxiang',  # 方向
-                        'WEIZ': 0,  # 交易位置
-                        'KDKD': 0,  # 开多开多
-                        'KDKK': 0,  # 开多开空
-                        'KDPD': 0,  # 开多平多
-                        'PKPK': 0,  # 平空平空
-                        'PKKK': 0,  # 平空开空
-                        'PKPD': 0,  # 平空平多
-                        'PDPD': 0,  # 平多平多
-                        'PDKD': 0,  # 平多开多
-                        'PDPK': 0,  # 平多平空
-                        'KKKK': 0,  # 开空开空
-                        'KKKD': 0,  # 开空开多
-                        'KKPK': 0,  # 开空平空
-                        'SHSP': 0,  # 上换手平
-                        'SHSK': 0,  # 上换手开
-                        'XHSP': 0,  # 下换手平
-                        'XHSK': 0,  # 下换手开
-                        'KPAN': 0,  # 开盘价
-                        'SPAN': 0,  # 收盘价
-                        'ZUIG': 0,  # 最高价
-                        'ZUID': 0  # 最低价
-                    }
+                    try:
+                        data_elements = line.strip(' ').split('\t')
+                        record_time = (str(data_elements[1]) + ',' + str(data_elements[0]))
+                        pattern = '%Y%m%d,%H:%M'
+                        time_format = time.strptime(record_time, pattern)
+                        epech_time = time.mktime(time_format)
+                        self.datadict[index] = {
+                            'SHIJ': int(epech_time),  # 时间
+                            'JIAG': int(data_elements[2]) if data_elements[2] else 0,  # 价格
+                            'CJL': int(data_elements[3]) if data_elements[3] else 0,  # 成交量
+                            'CJE': int(data_elements[4]) if data_elements[4] else 0,  # 成交额
+                            'CANGL': int(data_elements[5]) if data_elements[5] else 0,  # 仓量
+                            'KAIC': float(data_elements[9]) if data_elements[9] else 0,  # 开仓
+                            'PINGC': int(data_elements[10] if data_elements[10] else 0),  # 平仓
+                            # 'FANGX': data_elements[11].strip() if data_elements[11] else 0,  # 方向
+                            'FANGX': 'fangxiang',  # 方向
+                            'WEIZ': 0,  # 交易位置
+                            'KDKD': 0,  # 开多开多
+                            'KDKK': 0,  # 开多开空
+                            'KDPD': 0,  # 开多平多
+                            'PKPK': 0,  # 平空平空
+                            'PKKK': 0,  # 平空开空
+                            'PKPD': 0,  # 平空平多
+                            'PDPD': 0,  # 平多平多
+                            'PDKD': 0,  # 平多开多
+                            'PDPK': 0,  # 平多平空
+                            'KKKK': 0,  # 开空开空
+                            'KKKD': 0,  # 开空开多
+                            'KKPK': 0,  # 开空平空
+                            'SHSP': 0,  # 上换手平
+                            'SHSK': 0,  # 上换手开
+                            'XHSP': 0,  # 下换手平
+                            'XHSK': 0,  # 下换手开
+                            'KPAN': 0,  # 开盘价
+                            'SPAN': 0,  # 收盘价
+                            'ZUIG': 0,  # 最高价
+                            'ZUID': 0  # 最低价
+                        }
+                    except Exception as e:
+                        print line
+                        print e
                 else:
                     break
                 index += 1
