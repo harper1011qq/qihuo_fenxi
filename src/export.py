@@ -3,7 +3,6 @@
 import json
 import math
 import platform
-import pprint
 import time
 from collections import OrderedDict
 from copy import deepcopy
@@ -287,16 +286,17 @@ class DataHandler(object):
             key_list = r.json()['results'][0]['series'][0]['columns']
             value_lists = r.json()['results'][0]['series'][0]['values']
             for value_list in value_lists:
-                # value_list[0] is the timestamp of each value list. It is an unique value so can be used as a dict key
-                self.datadict[value_list[0]] = dict(zip(key_list, value_list))
+                time_stamp_from_influxdb = value_list[0]  # value_list[0] is the timestamp of each value list. It is an unique value so can be used as a dict key
+                self.datadict[time_stamp_from_influxdb] = dict(zip(key_list, value_list))
 
-            self.first_record_timestamp = deepcopy(value_lists[0][0])
-            self.last_record_timestamp = deepcopy(value_lists[-1][0])
+            self.first_record_timestamp = deepcopy(value_lists[0][0])  # 第一个元素的时间戳
+            self.last_record_timestamp = deepcopy(value_lists[-1][0])  # 最后一个元素的时间戳
             self.static_first_record_timestamp = deepcopy(value_lists[0][0])
             self.export_logger.debug(u"静态起始时间为: %s. 动态起始时间戳为:%s. 结束时间戳为: %s",
                                      self.static_first_record_timestamp, self.first_record_timestamp, self.last_record_timestamp)
             # self.export_logger.debug(u"生成的字典数据为:\n%s", pprint.pformat(dict(self.datadict)))
-
+        else:
+            pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
