@@ -30,7 +30,8 @@ class FileHandler(object):
         return file_data
 
     def split_file(self):
-        target_file = os.path.join(self.folder_path, self.cfg_file[self.config_name]['filename'])
+        # target_file = os.path.join(self.folder_path, self.cfg_file[self.config_name]['filename'])
+        target_file = self.cfg_file[self.config_name]['filename']
         split_command = 'split -l %s --additional-suffix _%s_split %s' % (SPLIT_LINE_NUMBER, self.config_name, target_file)
         print(u'分割文件所用命令为: %s' % split_command)
         self.log_logger.debug(u'分割文件所用命令为: %s', split_command)
@@ -40,17 +41,14 @@ class FileHandler(object):
 
         split_file_string = '*_%s_split' % self.config_name
         splited_files = [f for f in os.listdir(self.folder_path) if fnmatch.fnmatch(f, split_file_string)]
-        import_file = os.path.join(self.folder_path, 'import.py')
+        # import_file = os.path.join(self.folder_path, 'import.py')
+        import_file = 'import.py'
         process_command_list = list()
         for each_file in splited_files:
-            each_file_abs_path = os.path.join(self.folder_path, each_file)
             process_cmd = 'python %s -f %s -n %s' % (import_file, each_file, self.config_name)
             print(u'处理分割文件: %s, 命令为: %s' % (each_file, process_cmd))
             self.log_logger.info(u'处理分割文件: %s, 命令为: %s', each_file, process_cmd)
             process_command_list.append(process_cmd)
-            # process_result = subprocess.check_output(process_cmd, shell=True, stderr=subprocess.STDOUT)
-            # print(u'处理分割文件所结果为: %s. 删除临时分割文件: %s' % (process_result, each_file_abs_path))
-            # self.log_logger.debug(u'处理分割文件所结果为: %s. 删除临时分割文件: %s', process_result, each_file_abs_path)
             # os.remove(each_file_abs_path)
         final_process_command = ' | '.join(process_command_list)
         print(u'汇总处理命令为: %s' % final_process_command)
@@ -59,6 +57,12 @@ class FileHandler(object):
         process_result = subprocess.check_output(final_process_command, shell=True, stderr=subprocess.STDOUT)
         print(u'处理分割文件所结果为: %s' % (process_result))
         self.log_logger.debug(u'处理分割文件所结果为: %s ', process_result)
+
+        for each_file in splited_files:
+            each_file_abs_path = os.path.join(self.folder_path, each_file)
+            os.remove(each_file_abs_path)
+            print(u'删除临时分割文件: %s' % each_file_abs_path)
+            self.log_logger.info(u'删除临时分割文件: %s', each_file_abs_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
