@@ -18,10 +18,9 @@ from constants import CONFIG_NAME, get_import_log_handler, ORG_KEY_LIST, fill_or
 
 
 class DataHandler(object):
-    def __init__(self, name=None, border=False, platform='linux'):
+    def __init__(self, name=None, file=None, platform='linux'):
         self.trade_period = 'day'
         self.log_logger = get_import_log_handler()
-        self.border = border
         self.datadict = OrderedDict()
         self.static_first_record_timestamp = 0
         self.first_record_timestamp = 0
@@ -32,6 +31,7 @@ class DataHandler(object):
         self.config_name = name
         self.cfg_file = self.read_config_file()
         self.config_data = self.cfg_file[name]
+        self.file_name = file if file else self.cfg_file[self.config_name]['filename']
         self.date_list = list()
         self.time_list = list()
         self.each_interval_data = deepcopy(fill_order_org_empty_dict(OrderedDict()))
@@ -45,13 +45,13 @@ class DataHandler(object):
         for (k, v) in file_data[self.config_name].iteritems():
             cfg_print_tbl.add_row([k, v])
         self.log_logger.debug(u'配置文件内容为：\n%s', cfg_print_tbl)
-        print(u'配置文件内容为：\n%s' % cfg_print_tbl)
+        # print(u'配置文件内容为：\n%s' % cfg_print_tbl)
         return file_data
 
     def read_file(self):
         start_time = time.time()
         index = 0
-        with open(self.folder_path + self.cfg_file[self.config_name]['filename'], 'r') as data_file:
+        with open(self.folder_path + self.file_name, 'r') as data_file:
             for line in data_file.readlines():
                 try:
                     data_elements = line.strip(' ').split('\t')
@@ -95,7 +95,7 @@ class DataHandler(object):
                     self.log_logger.info(u'问题行原始数据为: %r', line)
                     self.log_logger.exception(e)
                 index += 1
-            print(u'读取文件花费时间为：%s' % (time.time() - start_time))
+            # print(u'读取文件花费时间为：%s' % (time.time() - start_time))
             self.log_logger.info(u'读取文件花费时间为：%s', time.time() - start_time)
 
     def generate_dynamic_data(self):  # 根据价格计算方向
@@ -126,12 +126,12 @@ class DataHandler(object):
                 else:
                     # 如果下一条记录的价格跟最开始的那条记录的价格一样的话. 忽略，进行下一条记录的比较
                     pass
-        print(u'确定第一个交易位置值花费时间为：%s' % (time.time() - start_time))
+        # print(u'确定第一个交易位置值花费时间为：%s' % (time.time() - start_time))
         self.log_logger.debug(u'确定第一个交易位置值花费时间为：%s, 第一个交易位置值为: %s', time.time() - start_time, self.datadict[earliest_record_index_number]['WEIZ'])
 
         for each in reversed_keys:
             if int(time.time() - start_time) / 300 :
-                print(u' %s / %s' % (each, len(reversed_keys)))
+                # print(u' %s / %s' % (each, len(reversed_keys)))
                 self.log_logger.info(u' %s / %s', each, len(reversed_keys))
             if self.datadict[each]['WEIZ'] == 0 and self.datadict.get(each + 1):
                 current_price = self.datadict[each]['JIAG']
@@ -148,7 +148,7 @@ class DataHandler(object):
 
         # self.log_logger.info(pprint.pformat(dict(self.interval_datadict)))
         self.log_logger.debug(u'计算其他动态值所花费时间为：%s', time.time() - start_time)
-        print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
+        # print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
 
     def generate_each_dynamic_data(self, weizhi, each):
         if weizhi == 1:
@@ -263,18 +263,13 @@ class DataHandler(object):
         self.log_logger.debug(u'创建InfluxDB数据库:%s, 结果为%s', self.config_name, u'成功' if r.status_code == 200 else u'失败')
 
 
-def main(name=None, border=False, platform=None):
-    data_handler = DataHandler(name=name, border=border, platform=platform)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--name', help=u'配置信息名', required=True)
+    parser.add_argument('-f', '--file', help=u'数据文件名', required=True)
+    args = parser.parse_args()
+
+    data_handler = DataHandler(name=args.name, file=args.file, platform=platform.system())
     data_handler.read_file()
     data_handler.generate_dynamic_data()
     data_handler.load_dynamic_data_into_influxdb()
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--interval', default=30, help=u'间隔时间，时间单位为分钟。')
-    parser.add_argument('-n', '--name', help=u'配置信息名称', required=True)
-    parser.add_argument('--border', default=False, action='store_true', help=u'是否显示表格边框，默认为不显示。')
-    args = parser.parse_args()
-
-    main(name=args.name, border=True, platform=platform.system())

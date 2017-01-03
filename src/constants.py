@@ -33,6 +33,7 @@ FENZHONG_30 = 30 * FENZHONG_1
 
 BASIC_INTERVAL = 1
 SEC_TO_NANOSEC = 1000000000
+SPLIT_LINE_NUMBER = 50000
 
 MAX = sys.maxint
 MIN = 0
@@ -73,7 +74,7 @@ EMPTY_CLEAN_PRINTOUT_INTERVAL_DICT = {
 
 def get_import_log_handler():
     log_handler = logging.handlers.RotatingFileHandler(IMPORT_LOG_FILE, maxBytes=1024 * 1024)
-    fmt = '%(asctime)s - %(filename)s:%(lineno)s - %(message)s'
+    fmt = '%(asctime)s - %(process)d:%(filename)s:%(lineno)s - %(message)s'
     formatter = logging.Formatter(fmt)
     log_handler.setFormatter(formatter)
     logger = logging.getLogger('log')
