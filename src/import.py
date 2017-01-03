@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import pprint
+import threading
 import time
 from collections import OrderedDict
 from copy import deepcopy
@@ -14,12 +15,12 @@ from influxdb import InfluxDBClient
 from prettytable import PrettyTable
 
 from constants import CONFIG_NAME, get_import_log_handler, ORG_KEY_LIST, fill_order_org_empty_dict, \
-    fill_order_org_list_dict, \
-    init_interval_empty_dict
+    fill_order_org_list_dict, init_interval_empty_dict, chunks
 
 
 class DataHandler(object):
-    def __init__(self, name=None, border=False, platform='linux'):
+    def __init__(self, name=None, border=False, platform='linux', thread=1):
+        self.thread_number = int(thread)
         self.trade_period = 'day'
         self.log_logger = get_import_log_handler()
         self.border = border
@@ -127,14 +128,29 @@ class DataHandler(object):
                 else:
                     # 如果下一条记录的价格跟最开始的那条记录的价格一样的话. 忽略，进行下一条记录的比较
                     pass
-        # print(u'确定第一个交易位置值花费时间为：%s' % (time.time() - start_time))
+        print(u'确定第一个交易位置值花费时间为：%s' % (time.time() - start_time))
         self.log_logger.debug(u'确定第一个交易位置值花费时间为：%s, 第一个交易位置值为: %s', time.time() - start_time, self.datadict[earliest_record_index_number]['WEIZ'])
 
-        for each in reversed_keys:
-            current_idx = each + 1 - len(reversed_keys)
-            if current_idx % 10000 == 0 and current_idx / 10000 > 0:
-                print(u'成功处理 一万条 数据。总花费时间为: %s' % (time.time() - start_time))
-                self.log_logger.info(u'成功处理 一万条 数据。总花费时间为: %s', (time.time() - start_time))
+        print(u'开启%s个线程对于原始文件进行处理' % self.thread_number)
+        self.log_logger.debug(u'开启%s个线程对于原始文件进行处理', self.thread_number)
+
+        # 拆分原始数据以便分配到各个子线程
+        splited_keys_list = list(chunks(reversed_keys, len(reversed_keys) / (self.thread_number - 1)))
+        for thread_inx in xrange(0, self.thread_number):
+            # print(splited_keys_list[thread_inx])
+            sub_thread = threading.Thread(target=self.handle_each_sub_data, args=(thread_inx, splited_keys_list[thread_inx]))
+            sub_thread.start()
+
+    def handle_each_sub_data(self, thread_idx, sub_data_keys):
+        print(u'线程%s 所处理的总数: %s' % (thread_idx, len(sub_data_keys)))
+        self.log_logger.info(u'线程%s 所处理的总数: %s',  thread_idx, len(sub_data_keys))
+
+        start_time = time.time()
+        for each in sub_data_keys:
+            current_idx = each + 1 - len(sub_data_keys)
+            if int(time.time() - start_time) / 300 :
+                print(u'线程:%s: %s / %s' % (thread_idx, current_idx, len(sub_data_keys)))
+                self.log_logger.info(u'线程:%s: %s / %s', thread_idx, current_idx, len(sub_data_keys))
             if self.datadict[each]['WEIZ'] == 0 and self.datadict.get(each + 1):
                 current_price = self.datadict[each]['JIAG']
                 previous_price = self.datadict[each + 1]['JIAG']
@@ -149,8 +165,8 @@ class DataHandler(object):
                 self.insert_into_interval_dict(each)
 
         # self.log_logger.info(pprint.pformat(dict(self.interval_datadict)))
-        self.log_logger.debug(u'计算其他动态值所花费时间为：%s', time.time() - start_time)
-        # print(u'计算其他动态值所花费时间为：%s' % (time.time() - start_time))
+        self.log_logger.debug(u'线程:%s 计算其他动态值所花费时间为：%s', thread_idx, time.time() - start_time)
+        print(u'线程:%s 计算其他动态值所花费时间为：%s' % (thread_idx, time.time() - start_time))
 
     def generate_each_dynamic_data(self, weizhi, each):
         if weizhi == 1:
@@ -265,18 +281,15 @@ class DataHandler(object):
         self.log_logger.debug(u'创建InfluxDB数据库:%s, 结果为%s', self.config_name, u'成功' if r.status_code == 200 else u'失败')
 
 
-def main(name=None, border=False, platform=None):
-    data_handler = DataHandler(name=name, border=border, platform=platform)
-    data_handler.read_file()
-    data_handler.generate_dynamic_data()
-    data_handler.load_dynamic_data_into_influxdb()
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--interval', default=30, help=u'间隔时间，时间单位为分钟。')
     parser.add_argument('-n', '--name', help=u'配置信息名称', required=True)
+    parser.add_argument('-t', '--thread', help=u'子线程数', default=1)
     parser.add_argument('--border', default=False, action='store_true', help=u'是否显示表格边框，默认为不显示。')
     args = parser.parse_args()
 
-    main(name=args.name, border=True, platform=platform.system())
+    data_handler = DataHandler(name=args.name, border=True, platform=platform.system(), thread=args.thread)
+    data_handler.read_file()
+    data_handler.generate_dynamic_data()
+    data_handler.load_dynamic_data_into_influxdb()

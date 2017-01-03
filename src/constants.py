@@ -230,3 +230,9 @@ def is_trade_end_time(epoch_time):
     if date_time_string.split(',')[1] == '11:30:00' or date_time_string.split(',')[1] == '15:30:00' or date_time_string.split(',')[1] == '21:00:00':
         return True
     return False
+
+
+def chunks(org_list, n):
+    """Yield successive n-sized chunks from org_list."""
+    for i in xrange(0, len(org_list), n):
+        yield org_list[i:i + n]
