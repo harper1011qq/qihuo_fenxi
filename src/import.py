@@ -131,8 +131,8 @@ class DataHandler(object):
 
         for each in reversed_keys:
             if int(time.time() - start_time) / 300 :
-                # print(u' %s / %s' % (each, len(reversed_keys)))
-                self.log_logger.info(u' %s / %s', each, len(reversed_keys))
+                # print(u' %s / %s' % (len(reversed_keys) - each, len(reversed_keys)))
+                self.log_logger.info(u' %s / %s', len(reversed_keys) - each, len(reversed_keys))
             if self.datadict[each]['WEIZ'] == 0 and self.datadict.get(each + 1):
                 current_price = self.datadict[each]['JIAG']
                 previous_price = self.datadict[each + 1]['JIAG']

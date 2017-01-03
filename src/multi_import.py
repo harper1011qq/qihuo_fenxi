@@ -4,9 +4,9 @@ import fnmatch
 import json
 import os
 import subprocess
+import time
 
 import argparse
-import time
 from prettytable import PrettyTable
 
 from constants import CONFIG_NAME, get_import_log_handler, SPLIT_LINE_NUMBER, IMPORT_LOG_FILE
@@ -56,7 +56,7 @@ class FileHandler(object):
         # print(u'汇总处理命令为: %s' % final_process_command)
         self.log_logger.info(u'汇总处理命令为: %s', final_process_command)
 
-        print(u'启用%s个进程处理数据中..... 大约需要一小时左右..... 详细信息请打开日志文件: %s' % (len(splited_files), IMPORT_LOG_FILE))
+        print(u'启用%s个进程处理数据中..... 详细信息请查看日志文件: %s' % (len(splited_files), IMPORT_LOG_FILE))
         self.log_logger.info(u'启用%s个进程处理数据中..... 大约需要一小时左右..... 详细信息请打开日志文件: %s', len(splited_files), IMPORT_LOG_FILE)
         process_result = subprocess.check_output(final_process_command, shell=True, stderr=subprocess.STDOUT)
         print(u'处理分割文件所结果为: %s' % (process_result))
@@ -67,7 +67,7 @@ class FileHandler(object):
             os.remove(each_file_abs_path)
             print(u'删除临时分割文件: %s' % each_file_abs_path)
             self.log_logger.info(u'删除临时分割文件: %s', each_file_abs_path)
-            
+
         print(u'脚本执行完毕.总耗时: %s' % time.time() - self.start_time)
         self.log_logger.info(u'脚本执行完毕.总耗时: %s', time.time() - self.start_time)
 
